@@ -12,9 +12,12 @@ let connected = false;
 el("connect").addEventListener("click", () => {
   connected ? window.loa.disconnect() : window.loa.connect();
 });
+el("pin").addEventListener("click", () => window.loa.window("pin"));
 el("min").addEventListener("click", () => window.loa.window("minimize"));
 el("max").addEventListener("click", () => window.loa.window("maximize"));
 el("close").addEventListener("click", () => window.loa.window("close"));
+
+window.loa.onPinned((d) => { el("pin").dataset.active = String(d.pinned); });
 el("clear").addEventListener("click", () => {
   rows.innerHTML = "";
   showEmpty("Historique vidé. Sélectionne un avion dans Aurora.");

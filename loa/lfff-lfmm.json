@@ -1,0 +1,256 @@
+{
+  "meta": {
+    "source": "LoA-LFFF-LFMM_EN v7.0 (19/03/2026)",
+    "scope": "Interface Paris ACC (LFFF) <-> Marseille ACC (LFMM), Clermont APP et St-Yan APP. Sections 2.2, 2.3, 3.1, 3.2.1 a 3.2.6.",
+    "notScoped": "Section 2.1 (classification d'espace) non encodee.",
+    "conventions": [
+      "Les cles a l'interieur d'un bloc 'when' se combinent en ET logique : {dep:[...], arr:[...]} = departs de X a destination de Y.",
+      "'fl' = niveau exact impose, 'maxFl' = plafond, 'minFl' = plancher, 'parity' = regle semi-circulaire, 'options' = liste de niveaux au choix.",
+      "'level.prohibited' = trafic interdit sur ce COP pour la condition donnee.",
+      "'when.depGroup' / 'when.arrGroup' renvoient au bloc 'groups' (3.2.1.1 et 3.2.2.1).",
+      "Cote LFMM toute l'interface avec Paris est en secteur LFMM_W (voir carte 2.2.2) : les regles portent LFMM_W_CTR, LFMM_CTR reprenant l'espace quand LFMM_W n'est pas en ligne.",
+      "Cote LFFF les regles portent LFFF_CTR (secteur primaire) ; LFFF_E_CTR herite des memes conditions quand il est en ligne."
+    ],
+    "disclaimer": "FOR SIMULATION USE ONLY - NOT VALID FOR REAL OPERATIONS"
+  },
+
+  "stations": {
+    "LFFF_CTR":   { "freq": "120.955", "name": "Paris Control", "fallback": [],
+                    "note": "Secteur primaire" },
+    "LFFF_E_CTR": { "freq": "132.100", "name": "Paris Control (East)", "fallback": ["LFFF_CTR"],
+                    "note": "Secteur secondaire" },
+    "LFMM_CTR":   { "freq": "128.850", "name": "Marseille Control", "fallback": [] },
+    "LFMM_W_CTR": { "freq": "132.365", "name": "Marseille Control (West)", "fallback": ["LFMM_CTR"],
+                    "note": "Frequence 132.365 selon cette LoA ; la LoA LECB-LFMM v7.1 indique 132.635 - divergence a arbitrer" },
+    "LFLC_APP":   { "freq": "122.225", "name": "Clermont Approach", "fallback": ["LFMM_W_CTR", "LFMM_CTR"],
+                    "note": "ATS dans la partie nord-ouest de la FIR Marseille, SFC-FL145" },
+    "LFLN_APP":   { "freq": "123.405", "name": "Saint-Yan Approach", "fallback": ["LFLC_APP", "LFMM_W_CTR", "LFMM_CTR"],
+                    "note": "ATS dans la partie nord du SIV Clermont, SFC-FL085" }
+  },
+
+  "groups": {
+    "Lyon": ["LFHJ", "LFHS", "LFHV", "LFHW", "LFKL", "LFKY", "LFLG", "LFLL", "LFLM", "LFLS", "LFLU", "LFLY", "LFMH", "LFXA"],
+    "Chambery": ["LFHM", "LFHU", "LFKA", "LFKX", "LFLB", "LFLE", "LFLJ", "LFLP"],
+    "Roissy": ["LFPG", "LFPB", "LFPC", "LFPT", "LFOB"],
+    "Orly": ["LFPO", "LFPM", "LFPN", "LFPV"],
+    "Lille": ["LFAC", "LFAQ", "LFAT", "LFAV", "LFAY", "LFQQ", "LFQO", "LFQT"],
+    "Brussels": ["EBAW", "EBBR", "EBCI", "EBCV", "EBMB"],
+    "Deauville": ["LFRC", "LFRG", "LFRK", "LFOH"]
+  },
+
+  "defaults": {
+    "general": [
+      "Le trafic est repute maintenir le niveau coordonne au COP sauf condition de montee/descente explicite (3.1).",
+      "Toute deviation (COP, route, FL) impose une approval request (3.1).",
+      "Silent handover possible a 10 NM, obligatoire si separation longitudinale < 20 NM (3.1)."
+    ]
+  },
+
+  "rules": [
+
+    { "id": "lfff-mmw-mou-a3", "ref": "3.2.1", "from": "LFFF_CTR", "to": "LFMM_W_CTR",
+      "routes": ["A3 MOU-OMANI"], "cop": ["MOU"],
+      "when": { "arrGroup": ["Lyon"], "arr": ["LFLO"] },
+      "level": { "parity": "odd", "minFl": 115 },
+      "seeAlso": "3.2.1.1",
+      "verify": "La cellule PDF cumule 'ARR Lyon Group and LFLO' : encode en une seule condition arrivee." },
+
+    { "id": "lfff-mmw-mou-a27", "ref": "3.2.1", "from": "LFFF_CTR", "to": "LFMM_W_CTR",
+      "routes": ["A27 MOU-BAKNO"], "cop": ["MOU"],
+      "level": { "parity": "odd", "minFl": 145 } },
+
+    { "id": "lfff-mmw-menox", "ref": "3.2.1", "from": "LFFF_CTR", "to": "LFMM_W_CTR",
+      "routes": ["R31 MENOX-TIS"], "cop": ["MENOX"],
+      "level": { "parity": "odd", "minFl": 145 } },
+
+    { "id": "lfff-mmw-lemin", "ref": "3.2.1", "from": "LFFF_CTR", "to": "LFMM_W_CTR",
+      "routes": ["R161 LEMIN-RIVEK"], "cop": ["LEMIN"],
+      "level": { "parity": "odd", "minFl": 145 } },
+
+    { "id": "lfff-mmw-mou-fedzi", "ref": "3.2.1", "from": "LFFF_CTR", "to": "LFMM_W_CTR",
+      "routes": ["MOU-FEDZI"], "cop": ["MOU"],
+      "when": { "arr": ["LFLB", "LFLP"] },
+      "level": { "fl": 200, "at": "FEDZI" },
+      "seeAlso": "3.2.1.2" },
+
+    { "id": "lfff-mmw-mou-lyon", "ref": "3.2.1", "from": "LFFF_CTR", "to": "LFMM_W_CTR",
+      "routes": ["FRA MOU A3 FEDZI"], "cop": ["MOU"],
+      "when": { "arrGroup": ["Lyon"] },
+      "level": { "fl": 200, "at": "MOU" },
+      "seeAlso": "3.2.1.2" },
+
+    { "id": "mmw-lfff-pibat", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["A2 AMORO-PIBAT"], "cop": ["PIBAT"],
+      "when": { "depGroup": ["Lyon", "Chambery"], "rflBelow": 195 },
+      "level": { "parity": "even", "minFl": 115 } },
+
+    { "id": "mmw-lfff-omani", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["A3 OMANI-MOU"], "cop": ["OMANI"],
+      "level": { "parity": "even", "minFl": 115 },
+      "exceptions": [
+        { "when": { "dep": ["LFMH"], "rflAbove": 195 }, "level": { "fl": 180 } }
+      ] },
+
+    { "id": "mmw-lfff-mou-a27", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["A27 BAKNO-MOU"], "cop": ["MOU"],
+      "level": { "parity": "even", "minFl": 145 } },
+
+    { "id": "mmw-lfff-mou-j34", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["J34 BUSIL-MOU"], "cop": ["MOU"],
+      "when": { "depGroup": ["Lyon", "Chambery"] },
+      "level": { "parity": "even", "minFl": 115 } },
+
+    { "id": "mmw-lfff-lemin", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["R161 RIVEK-LEMIN"], "cop": ["LEMIN"],
+      "level": { "parity": "even", "minFl": 145 },
+      "exceptions": [
+        { "when": { "arr": ["LFOA", "LFLD", "LFQG", "LFLX", "LFOJ"] }, "level": { "fl": 190 } }
+      ] },
+
+    { "id": "mmw-lfff-sid-mou", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["SID MOU LFLC", "SID MOU LFLV"], "cop": ["TITOX", "LEMIN"],
+      "level": { "fl": 180 },
+      "note": "FL160 si le RFL l'impose (cellule PDF : 'FL180 (or FL160 if RFL)')" },
+
+    { "id": "mmw-lfff-bulol", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["BULOL-IDAVO"], "cop": ["BULOL"],
+      "level": { "parity": "even" },
+      "requires": { "areaInactive": ["TRA24"] },
+      "exceptions": [
+        { "when": { "arrGroup": ["Roissy"] }, "level": { "prohibited": true } },
+        { "when": { "arrGroup": ["Orly"] }, "level": { "fl": 340 } },
+        { "when": { "depFir": ["LFMM"], "arrGroup": ["Lille", "Brussels", "Deauville"] }, "level": { "fl": 340 } },
+        { "when": { "depFir": ["LFMM"], "arr": ["LFOP", "LFOE"] }, "level": { "fl": 340 } }
+      ] },
+
+    { "id": "mmw-lfff-madot", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["MADOT-MOPEM"], "cop": ["MADOT"],
+      "level": { "anyLevel": true },
+      "exceptions": [
+        { "when": { "transit": true, "rflBelow": 340 }, "level": { "prohibited": true } },
+        { "when": { "arrGroup": ["Roissy"] }, "level": { "prohibited": true } },
+        { "when": { "arrGroup": ["Orly"] }, "level": { "fl": 340 } },
+        { "when": { "depFir": ["LFMM"], "arrGroup": ["Lille", "Brussels", "Deauville"] }, "level": { "fl": 340 } },
+        { "when": { "depFir": ["LFMM"], "arr": ["LFOP", "LFOE"] }, "level": { "fl": 340 } },
+        { "when": { "rflBelow": 245 }, "level": { "prohibited": true }, "note": "Reroutage via BULOL" }
+      ] },
+
+    { "id": "mmw-lfff-logni", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["BULOL-LOGNI", "GIPNO-LOGNI"], "cop": ["LOGNI"],
+      "when": { "arrGroup": ["Roissy"] },
+      "level": { "parity": "even", "forbidden": [240] },
+      "seeAlso": "3.2.2.2",
+      "note": "FL240 disponible uniquement sur coordination" },
+
+    { "id": "mmw-lfff-amoro", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["BUSIL-AMORO-PIBAT"], "cop": ["AMORO"],
+      "when": { "depGroup": ["Lyon", "Chambery"], "rflAbove": 195 },
+      "level": { "options": [200, 220, 240] },
+      "exceptions": [
+        { "when": { "arrGroup": ["Roissy"] }, "level": { "prohibited": true } }
+      ],
+      "seeAlso": "3.2.2.3" },
+
+    { "id": "mmw-lfff-bobsi", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["SID MOKIP LFLL"], "cop": ["BOBSI"],
+      "when": { "dep": ["LFLL", "LFLY", "LFLS"] },
+      "level": { "options": [200, 220, 240] },
+      "seeAlso": "3.2.2.4" },
+
+    { "id": "mmw-lfff-mokip", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LFFF_CTR",
+      "routes": ["SID MOKIP LFLB"], "cop": ["MOKIP"],
+      "when": { "dep": ["LFLB", "LFLP"] },
+      "level": { "options": [200, 220] },
+      "seeAlso": "3.2.2.4" },
+
+    { "id": "lfff-lflc-nekem", "ref": "3.2.3", "from": "LFFF_CTR", "to": "LFLC_APP",
+      "routes": ["STAR ATRID nA"], "cop": ["NEKEM"],
+      "when": { "arr": ["LFLC"] },
+      "level": { "fl": 130 } },
+
+    { "id": "lfff-lflc-menox-bakno", "ref": "3.2.3", "from": "LFFF_CTR", "to": "LFLC_APP",
+      "routes": ["R31", "A27"], "cop": ["MENOX", "BAKNO"],
+      "level": { "parity": "odd", "maxFl": 145 },
+      "exceptions": [
+        { "when": { "arr": ["LFLV"] }, "level": { "fl": 130, "at": "FIR boundary" },
+          "note": "Stabilise a FL130 a la limite de FIR" }
+      ] },
+
+    { "id": "lfff-lflc-lemin", "ref": "3.2.3", "from": "LFFF_CTR", "to": "LFLC_APP",
+      "routes": ["R161"], "cop": ["LEMIN"],
+      "level": { "parity": "odd", "maxFl": 145 } },
+
+    { "id": "lfff-lflc-avlon", "ref": "3.2.3", "from": "LFFF_CTR", "to": "LFLC_APP",
+      "routes": ["B373"], "cop": ["AVLON"],
+      "when": { "arr": ["LFLN", "LFLO", "LFHY"] },
+      "level": { "fl": 120 },
+      "note": "Ou le RFL s'il est inferieur" },
+
+    { "id": "lfff-lflc-lfhl", "ref": "3.2.3", "from": "LFFF_CTR", "to": "LFLC_APP",
+      "routes": ["A2", "A3"], "cop": ["TRARE", "AVLON"],
+      "when": { "arr": ["LFLH"] },
+      "level": { "fl": 120 },
+      "note": "Ou le RFL s'il est inferieur" },
+
+    { "id": "lflc-lfff-romgi", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFFF_CTR",
+      "routes": ["SID MOU", "SID RIVEK"], "cop": ["ROMGI"],
+      "when": { "dep": ["LFLC", "LFLV"] },
+      "level": { "options": [120, 140] },
+      "note": "Selon le RFL",
+      "seeAlso": "3.2.4.1" },
+
+    { "id": "lflc-lfff-trare", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFFF_CTR",
+      "routes": ["A3", "R31", "R161"], "cop": ["TRARE"],
+      "when": { "arr": ["LFOA", "LFLD", "LFQG"] },
+      "level": { "fl": 100 } },
+
+    { "id": "lfff-lfln-coord", "ref": "3.2.5", "from": "LFFF_CTR", "to": "LFLN_APP",
+      "routes": ["A3", "R28"], "cop": ["TRARE", "OKEPI"],
+      "when": { "arr": ["LFLN", "LFLO", "LFHY"] },
+      "level": { "coordination": true },
+      "seeAlso": "3.2.5.1" },
+
+    { "id": "lfln-lfff-coord", "ref": "3.2.6", "from": "LFLN_APP", "to": "LFFF_CTR",
+      "routes": ["A3"], "cop": ["TRARE"],
+      "when": { "dep": ["LFLN", "LFLO", "LFHY"] },
+      "level": { "coordination": true },
+      "seeAlso": "3.2.6.1" }
+  ],
+
+  "notes": {
+    "3.2.1.1": "Definition du Lyon Group : voir le bloc 'groups'.",
+    "3.2.1.2": "En cas d'arrivees simultanees via MOU, Paris ACC s'efforce de les sequencer. Si necessaire et apres coordination, FL210 et FL220 sont disponibles.",
+    "3.2.2.1": "Definition des groupes d'aerodromes : voir le bloc 'groups'.",
+    "3.2.2.2": "Les vols via BULOL/GIPNO-LOGNI-MOKIP-ARFOZ sont transferes a FL380 maximum a LOGNI. Vols a destination du Roissy Group : FL340 en croisiere si depart en FIR LFMM hors Corse, FL360 si depart de Corse hors LFKJ et LFKF, FL380 pour les autres. FL240 disponible uniquement sur coordination.",
+    "3.2.2.3": "Les trafics vers AMORO sont transferes stables a FL200 pour RFL = 200, en montee vers FL240 pour les departs LFLS/LFLU avec RFL > 235, en montee vers FL220 pour les autres (liberes ensuite vers FL240). Route AMORO-PIBAT pour les destinations LFPO LFPV LFPN LFPM LFO* LFR* LFJR, route AMORO-MOMIL-BAGBI pour les autres.",
+    "3.2.2.4": "Les departs de LFLL LFLY LFLS LFLB LFLP via DJL sont transferes stables a FL200 pour RFL = 200, en montee vers FL240 pour les departs LFLS, en montee vers FL220 pour LFLL LFLY LFLB LFLP (liberes ensuite vers FL240).",
+    "3.2.2.5": "Paris ACC est responsable de la compatibilite des trafics convergeant a MOU et TITOX sur A3, A27, SID CACHI/MOU de LFLC-LFLV sous FL145, et convergeant a LEMIN et MENOX depuis Marseille ACC sur R161/R31 et Bordeaux ACC sur G21. Marseille ACC est responsable de la compatibilite des trafics convergeant sur A3, A27, SID CACHI/MOU de LFLC-LFLV au-dessus de FL145, convergeant a RIVEK et SINPO depuis Paris ACC sur R161/R31 et Bordeaux ACC sur R66, et convergeant a PIBAT sur BULOL-BUSIL, MOPEM-PIBAT et MOPEM-CACHI.",
+    "3.2.3.1": "Clermont APP est responsable de la compatibilite des vols convergeant a RIVEK et SINPO depuis Paris ACC sur R161/R31 et Bordeaux ACC sur R66 sous FL145.",
+    "3.2.3.2": "Les arrivees LFLN LFLO LFHY via RLP-KASON sont coordonnees entre Basel APP et Clermont APP et evitent l'espace de Paris ACC. Les arrivees via LEMIN sont coordonnees entre Limoges APP et Clermont APP et evitent egalement l'espace de Paris ACC.",
+    "3.2.4.1": "Les departs avec RFL > 145 sont coordonnes entre Marseille ACC et Paris ACC. Les departs avec RFL < 115 restent dans Clermont APP et sont transferes sur l'airway a leur RFL.",
+    "3.2.5.1": "Ces vols doivent eviter l'espace de Clermont APP. Toutes les autres arrivees sont coordonnees entre Clermont APP et St-Yan APP.",
+    "3.2.6.1": "Tous les autres departs sont coordonnes entre St-Yan APP et Clermont APP."
+  },
+
+  "specialAreas": [
+    { "id": "TRA24", "name": "TRA 24",
+      "vertical": "FL195-UNL",
+      "info": "Paris ACC informe Marseille ACC de l'activite de la TRA 24.",
+      "effects": ["Les vols planifies via BULOL-IDAVO sont reroutes via BULOL-BUSIL-PIBAT"],
+      "ref": "2.3.1" },
+    { "id": "LF-R137", "name": "LF-R137",
+      "vertical": "FL085-FL140",
+      "info": "Clermont APP informe Paris ACC de l'activite de LF-R137.",
+      "effects": [
+        "A27 CFA-MOU indisponible entre FL115 et FL145",
+        "Paris ACC reroute les vols sud via MOU-OLIRI-NEKEM-ARSOM si RNAV, via MOU-LEMIN-CFA si non RNAV",
+        "Clermont APP reroute les vols nord via CFA-LEMIN-MOU"
+      ],
+      "ref": "2.3.3" }
+  ],
+
+  "changelog": [
+    { "version": "v7.0", "date": "19/03/2026",
+      "changes": ["Nouveau format", "Conditions d'echange", "Espace LFMM ACC", "Espace LFFF ACC"] }
+  ]
+}

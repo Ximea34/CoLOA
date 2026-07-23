@@ -275,6 +275,12 @@ async function buildRow(expectedCallsign, knownPos) {
       ? `${expectedCallsign} ${fp.dep}->${fp.arr} : regle ${result.ruleId} (${result.ref}), COP ${result.transferPoint} — route [${fixList}]`
       : `${expectedCallsign} ${fp.dep}->${fp.arr} : Aucun COP — route [${fixList}]`
   );
+  // Detail de la decision : classification, candidats consideres, exception
+  // retenue. Une ligne par etape, prefixee du callsign pour s'y retrouver
+  // quand plusieurs avions defilent dans le log.
+  for (const line of result.trace || []) {
+    debugPush("info", "engine", `${expectedCallsign} : ${line}`);
+  }
 
   return { ...result, at: Date.now() };
 }
@@ -289,6 +295,11 @@ ipcMain.on("window", (_e, action) => {
   if (action === "minimize") win.minimize();
   if (action === "maximize") win.isMaximized() ? win.unmaximize() : win.maximize();
   if (action === "close") win.close();
+  if (action === "pin") {
+    const pinned = !win.isAlwaysOnTop();
+    win.setAlwaysOnTop(pinned);
+    send("pinned", { pinned });
+  }
 });
 
 ipcMain.on("debug:open", createDebugWindow);

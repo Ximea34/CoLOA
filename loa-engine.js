@@ -8,8 +8,10 @@
 
 const path = require("path");
 const { loadAll } = require("./loa-loader");
+const { loadStars, resolveStarCop } = require("./star-loader");
 
 const DB = loadAll(path.join(__dirname, "loa"));
+const STAR_DB = loadStars(path.join(__dirname, "STAR"));
 
 // --- utilitaires -----------------------------------------------------------
 
@@ -190,6 +192,120 @@ function resolveStation(target, onlineATC, myStation) {
            text: "Aucune station en ligne — UNICOM 122.800" };
 }
 
+// --- classification du vol : arrivee / depart / interne / transit ----------
+//
+// Un controleur LFMM_W_CTR se demande d'abord "quel est le role de ce vol
+// pour moi ?" avant de chercher une regle — jamais l'inverse. Chercher une
+// regle sur TOUTE la base (comme avant) laissait une regle de reception
+// d'une autre FIR (ex. lsag-balsi, from: LSAG) ou une regle non filtree
+// (ex. mmw-brusc, sans "when" du tout) remonter par coincidence de COP,
+// masquant la regle interne pourtant seule pertinente pour ce controleur.
+
+// Aerodromes dont l'approche est geree par un secteur donne : derive des
+// regles "acc-*" elles-memes (from: secteur, to: *_APP) plutot que code en
+// dur, pour rester a jour si de nouvelles arrivees sont ajoutees a la LOA.
+function computeHomeAirports(rules) {
+  const bySector = new Map();
+  for (const rule of rules) {
+    if (!/_APP$/.test(rule.to || "")) continue;
+    if (!bySector.has(rule.from)) bySector.set(rule.from, new Set());
+    const set = bySector.get(rule.from);
+    for (const a of rule.when?.arr || []) set.add(a);
+  }
+  return bySector;
+}
+
+const HOME_AIRPORTS = computeHomeAirports(DB.rules);
+
+// Regle 1 (arrivee) / Regle 3 (vol interne, traite comme une arrivee, jamais
+// de phase depart separee) / Regle 2 (depart) / Regle 4 (transit, "sinon").
+function classify(fp, mySector) {
+  const home = HOME_AIRPORTS.get(mySector) || new Set();
+  if (home.has(fp.arr)) return "arrival";
+  if (home.has(fp.dep)) return "departure";
+  return "transit";
+}
+
+// Regles 1 & 3 : uniquement les regles acc-* de MON secteur pour CET
+// aeroport d'arrivee. Jamais une regle d'une autre FIR — structurellement
+// impossible ici, contrairement a l'ancien tri global.
+function arrivalCandidates(rules, mySector, fp, fixes) {
+  const destRules = rules.filter(
+    (rule) =>
+      rule.from === mySector &&
+      /_APP$/.test(rule.to || "") &&
+      (rule.when?.arr || []).includes(fp.arr)
+  );
+
+  const candidates = [];
+  for (const rule of destRules) {
+    for (const cop of rule.cop || []) {
+      const m = matchCop(cop, fixes);
+      if (m) candidates.push({ rule, cop, ...m });
+    }
+  }
+
+  // Rien trouve litteralement : le plan de vol s'arrete au point de
+  // transition (ex. LESPI) et n'atteint jamais le COP reel (ex. TALAR), qui
+  // n'existe que developpe sur la STAR — jamais visible via #TRPATHA tant
+  // que l'avion n'y est pas engage. On le retrouve via STAR/*.str : dernier
+  // fixe connu -> point(s) final(aux) reel(s) de la STAR. Si la config piste
+  // change l'issue (deux points differents), les DEUX sont retenus comme
+  // candidats plutot que d'en deviner un — celui qui n'est pas choisi
+  // apparait comme alternative.
+  if (!candidates.length) {
+    const enroute = fixes.filter((f) => f !== fp.arr);
+    const lastFix = enroute[enroute.length - 1];
+    for (const { cop, runways, starName } of resolveStarCop(STAR_DB, fp.arr, lastFix)) {
+      const owningRule = destRules.find((r) => (r.cop || []).includes(cop));
+      if (!owningRule) continue; // COP reel pas encore code dans une regle : rien a afficher de fiable
+      candidates.push({
+        rule: owningRule, cop, tier: 1, index: enroute.length - 1,
+        transferPoint: cop, entry: lastFix,
+        inferredVia: `${lastFix} → ${starName} (${runways})`,
+      });
+    }
+  }
+
+  // Toujours rien : repli generique si une regle de cet aeroport le prevoit.
+  if (!candidates.length) {
+    for (const rule of destRules) {
+      if (rule.fallback) {
+        candidates.push({ rule, cop: null, tier: 2, index: Infinity, transferPoint: null, entry: null });
+      }
+    }
+  }
+
+  candidates.sort((a, b) => a.tier - b.tier || a.index - b.index);
+  return candidates;
+}
+
+// Regles 2 & 4 : recherche du COP de sortie. On ne considere QUE les regles
+// sortantes de mon secteur (rule.from === mySector) — jamais une regle de
+// reception d'une autre FIR — et parmi les cop trouves sur la route, on
+// retient celui qui apparait le PLUS TARD dans l'ordre du plan de vol (le
+// plus proche de la sortie reelle de mon espace), pas le plus proche du
+// depart. D'ou l'index DESCENDANT, a l'inverse du tri des arrivees.
+function exitCandidates(rules, mySector, fixes) {
+  const candidates = [];
+  for (const rule of rules) {
+    if (rule.from !== mySector) continue;
+    // Les regles "to: *_APP" sont des transferts d'arrivee (Regles 1/3) —
+    // jamais un COP de sortie vers un autre secteur/FIR (Regles 2/4).
+    if (/_APP$/.test(rule.to || "")) continue;
+    let matchedAny = false;
+    for (const cop of rule.cop || []) {
+      const m = matchCop(cop, fixes);
+      if (m) { candidates.push({ rule, cop, ...m }); matchedAny = true; }
+    }
+    if (!matchedAny && rule.fallback) {
+      candidates.push({ rule, cop: null, tier: 2, index: -Infinity, transferPoint: null, entry: null });
+    }
+  }
+  candidates.sort((a, b) => a.tier - b.tier || b.index - a.index);
+  return candidates;
+}
+
 // --- moteur ----------------------------------------------------------------
 
 function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
@@ -197,28 +313,26 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
   const rfl = toFL(fp.cruiseLevel);
   const mySector = myStation.startsWith("LFMM_E") ? "LFMM_E" : "LFMM_W";
 
-  const candidates = [];
-  for (const rule of DB.rules) {
-    if (!whenMatches(rule.when, fp)) continue;
-    let matchedAny = false;
-    for (const cop of rule.cop || []) {
-      const m = matchCop(cop, fixes);
-      if (m) { candidates.push({ rule, cop, ...m }); matchedAny = true; }
-    }
-    // "fallback" : la regle couvre un cas general ("toute arrivee LFMT sur
-    // STAR") dont la liste de cop n'est qu'un echantillon, pas une liste
-    // exhaustive. Elle ne s'applique que si AUCUNE regle n'a matche via un
-    // cop reconnu POUR CETTE regle precise — jamais en remplacement d'un
-    // match plus precis de la meme regle. tier 2 (pire que 0/1) la place
-    // derriere un vrai match dans le meme secteur, mais le secteur reste le
-    // premier critere : ma propre regle de transfert (meme en repli) passe
-    // avant une regle de reception d'une autre FIR, meme si celle-ci a
-    // trouve un COP reel. Sinon, recevoir un trafic via un COP d'une FIR
-    // voisine masque systematiquement ce que MOI je dois en faire ensuite.
-    if (!matchedAny && rule.fallback) {
-      candidates.push({ rule, cop: null, tier: 2, index: Infinity, transferPoint: null, entry: null });
-    }
-  }
+  const kind = classify(fp, mySector);
+  const candidates = kind === "arrival"
+    ? arrivalCandidates(DB.rules, mySector, fp, fixes)
+    : exitCandidates(DB.rules, mySector, fixes);
+
+  // Trace de decision : jamais utilise pour decider quoi que ce soit (ca
+  // resterait a lire l'etat apres coup), seulement pour que la fenetre debug
+  // puisse montrer POURQUOI cette regle-la a ete retenue plutot qu'une autre.
+  const trace = [
+    `Classification : ${kind} (dep=${fp.dep}, arr=${fp.arr}, secteur=${mySector})`,
+    `${candidates.length} candidat(s) dans le sous-ensemble "${kind}"`,
+  ];
+  const fmtIndex = (i) => (i === Infinity || i === -Infinity ? "n/a" : i);
+  candidates.slice(0, 5).forEach((c, i) => {
+    const cop = c.cop || "(regle generale, sans cop)";
+    const via = c.inferredVia ? ` [inference STAR : ${c.inferredVia}]` : "";
+    trace.push(
+      `  ${i === 0 ? "-> retenu" : "   alternative"} : ${c.rule.id} — cop ${cop}, tier ${c.tier}, index ${fmtIndex(c.index)}${via}`
+    );
+  });
 
   if (!candidates.length) {
     return {
@@ -230,18 +344,10 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
         "Verifier le range radar (#TRPATHA est tronque), un DCT hors LOA, " +
         "ou une interface non couverte (Bordeaux, Geneve, Milan, Barcelone).",
       remaining: fixes.slice(0, 8),
+      trace,
     };
   }
 
-  // Ordre de priorite : regle de mon secteur > correspondance complete > COP le
-  // plus proche. Sans le critere de secteur, une regle LFMM_E (ou d'une autre
-  // FIR) peut capturer un avion que je gere depuis LFMM_W.
-  const score = (c) => [c.rule.from === mySector ? 0 : 1, c.tier, c.index];
-  candidates.sort((a, b) => {
-    const [sa, ta, ia] = score(a);
-    const [sb, tb, ib] = score(b);
-    return sa - sb || ta - tb || ia - ib;
-  });
   const best = candidates[0];
   const usedFallback = best.tier === 2;
   const rule = best.rule;
@@ -253,20 +359,30 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
   const levelSpec = exception ? { ...rule.level, ...exception.level } : rule.level;
   const level = resolveLevel(levelSpec, rfl);
 
+  if (usedFallback) trace.push("Repli : aucun cop de cette regle trouve sur la route, clause generale appliquee");
+  trace.push(
+    exception
+      ? `Exception retenue : ${JSON.stringify(exception.when)} -> ${JSON.stringify(exception.level)}`
+      : "Aucune exception applicable, niveau de base de la regle"
+  );
+
   const next = resolveStation(rule.to, onlineATC, myStation);
 
+  // rule.from === mySector est garanti par construction (arrivalCandidates
+  // et exitCandidates ne considerent que les regles sortantes de mon
+  // secteur) : plus besoin de signaler un ecart de secteur ici.
   const warnings = [...level.warnings];
   if (rule.verify) warnings.push(`Regle a verifier : ${rule.verify}`);
   if (exception && exception.verify) warnings.push("Exception issue d'une cellule PDF ambigue.");
-  if (rule.from !== mySector) {
-    warnings.push(`Cette regle vaut pour ${rule.from}, tu es sur ${mySector}.`);
-  }
 
   const conditions = [];
   if (usedFallback) {
     conditions.push(
       "Aucun COP reconnu sur la route — regle appliquee via sa clause generale, point de transfert non identifie"
     );
+  }
+  if (best.inferredVia) {
+    conditions.push(`COP deduit via la STAR — pas encore franchi sur la route (${best.inferredVia})`);
   }
   if (exception) {
     const key = exception.when.arr ? `ARR ${fp.arr}` : `DEP ${fp.dep}`;
@@ -322,6 +438,7 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
     ref: `§${rule.ref}`,
     ruleId: rule.id,
     alternatives: candidates.slice(1, 3).map((c) => c.cop ? `${c.cop} (${c.rule.ref})` : `regle generale (${c.rule.ref})`),
+    trace,
   };
 }
 

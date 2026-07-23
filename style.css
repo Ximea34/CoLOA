@@ -112,6 +112,7 @@ body {
 .win button:hover svg { stroke: var(--text); }
 .win .close:hover { background: var(--err); }
 .win .close:hover svg { stroke: #fff; }
+.win button[data-active="true"] svg { stroke: var(--accent); }
 
 /* --- bandeau d'erreur ----------------------------------------------------- */
 

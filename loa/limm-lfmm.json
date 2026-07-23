@@ -1,0 +1,227 @@
+{
+  "meta": {
+    "source": "LoA-LIMM-LFMM_EN v4.0 (19/03/2026)",
+    "scope": "Interface Milano ACC (LIMM) <-> Marseille ACC (LFMM), Nice APP et Bastia APP. Sections 2.2, 2.3, 3.1, 3.2.1 a 3.2.6.",
+    "notScoped": "Section 2.1 (classification d'espace) non encodee.",
+    "conventions": [
+      "Les cles a l'interieur d'un bloc 'when' se combinent en ET logique : {dep:[...], arr:[...]} = departs de X a destination de Y.",
+      "'fl' = niveau exact impose, 'maxFl' = plafond, 'minFl' = plancher, 'parity' = regle semi-circulaire, 'options' = liste de niveaux au choix.",
+      "'when.arr' accepte des jokers de prefixe (LIP*, LIM*) avec 'when.arrExcept' pour les exclusions : la LoA raisonne par prefixe dans la table 3.2.2.",
+      "Cote LIMM les regles portent LIMM_WS2_CTR (secteur primaire) ; LIMM_WS5_CTR ne couvre que FL305/UNL et herite des memes conditions au-dessus de ce niveau.",
+      "Cote LFMM seul LFMM_E_CTR est concerne par cette LoA (2.2.2)."
+    ],
+    "disclaimer": "FOR SIMULATION USE ONLY - NOT VALID FOR REAL OPERATIONS"
+  },
+
+  "stations": {
+    "LIMM_WS2_CTR": { "freq": "135.455", "name": "Milano Radar (WS2)", "fallback": [],
+                      "note": "Secteur primaire" },
+    "LIMM_WS5_CTR": { "freq": "122.730", "name": "Milano Radar (WS5)", "fallback": ["LIMM_WS2_CTR"],
+                      "note": "Secteur secondaire, FL305/UNL" },
+    "LFMM_CTR":     { "freq": "128.850", "name": "Marseille Control", "fallback": [] },
+    "LFMM_E_CTR":   { "freq": "127.905", "name": "Marseille Control (East)", "fallback": ["LFMM_CTR"] },
+    "LFMN_APP":     { "freq": "134.475", "name": "Nice Approach", "fallback": ["LFMM_E_CTR", "LFMM_CTR"] },
+    "LFMN_DEP":     { "freq": "130.830", "name": "Nice Departure", "fallback": ["LFMN_APP", "LFMM_E_CTR", "LFMM_CTR"],
+                      "note": "Position secondaire, conditions d'ouverture dans les ATC rules" },
+    "LFKB_APP":     { "freq": "123.825", "name": "Bastia Approach", "fallback": ["LFMM_E_CTR", "LFMM_CTR"] }
+  },
+
+  "defaults": {
+    "general": [
+      "Le trafic est repute maintenir le niveau coordonne au COP sauf condition de montee/descente explicite (3.1).",
+      "Toute deviation (COP, route, FL) impose une approval request (3.1).",
+      "Silent handover possible a 10 NM, obligatoire si separation longitudinale < 20 NM (3.1)."
+    ]
+  },
+
+  "rules": [
+
+    { "id": "limm-mme-kolon", "ref": "3.2.1", "from": "LIMM_WS2_CTR", "to": "LFMM_E_CTR",
+      "routes": ["VAMTU-KOLON", "BORDI-KOLON"], "cop": ["VAMTU", "BORDI"],
+      "level": { "parity": "odd", "minFl": 245 },
+      "exceptions": [
+        { "when": { "arr": ["LFMT", "LFMU", "LFNG", "LFMP", "LFMK"] }, "level": { "fl": 350 } }
+      ],
+      "seeAlso": "3.2.1.1" },
+
+    { "id": "limm-mme-bordi", "ref": "3.2.1", "from": "LIMM_WS2_CTR", "to": "LFMM_E_CTR",
+      "routes": ["N736", "FRA"], "cop": ["BORDI"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LIMJ", "LIMZ"] }, "level": { "fl": 230 } },
+        { "when": { "arr": ["LFML", "LFMQ", "LFMV", "LFMY", "LFMA", "LFMO", "LFMI", "LFTH", "LFTW", "LFTF"] }, "level": { "fl": 230 } }
+      ],
+      "verify": "Le PDF fusionne DEP LIMJ/LIMZ et la liste ARR sur une seule cellule FL230 : verifier si le FL230 s'applique bien aux deux conditions ou uniquement aux departs." },
+
+    { "id": "limm-mme-talep", "ref": "3.2.1", "from": "LIMM_WS2_CTR", "to": "LFMM_E_CTR",
+      "routes": ["FRA"], "cop": ["TALEP"],
+      "level": { "parity": "odd", "minFl": 285 } },
+
+    { "id": "limm-mme-tortu", "ref": "3.2.1", "from": "LIMM_WS2_CTR", "to": "LFMM_E_CTR",
+      "routes": ["M858-TORTU-A9", "FRA"], "cop": ["TORTU"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LFKS"] }, "level": { "prohibited": true } },
+        { "when": { "arr": ["LIEA", "LIEO"] }, "level": { "fl": 350 } },
+        { "when": { "arr": ["LFKJ", "LFKF"] }, "level": { "fl": 230 } },
+        { "when": { "dep": ["LIMJ", "LIMG"] }, "level": { "fl": 190 } }
+      ] },
+
+    { "id": "mme-limm-nosta", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIMM_WS2_CTR",
+      "routes": ["FRA"], "cop": ["NOSTA"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LIMJ", "LIMG"] }, "level": { "prohibited": true } },
+        { "when": { "arr": ["LIP*"], "arrExcept": ["LIPE", "LIPX"] }, "level": { "fl": 360 } },
+        { "when": { "arr": ["LIPE", "LIPX", "LIRQ", "LIQS", "LSZS", "LSZA"] }, "level": { "fl": 340 } },
+        { "when": { "arr": ["LIM*", "LSZL"], "arrExcept": ["LIMZ"] }, "level": { "fl": 320 }, "seeAlso": "3.2.2.1" },
+        { "when": { "arr": ["LIMZ", "LIRP"] }, "level": { "fl": 280 } },
+        { "when": { "dep": ["LFTH", "LFTF", "LFMC", "LFTZ", "LFMF"] }, "level": { "fl": 280 } }
+      ] },
+
+    { "id": "mme-limm-basip", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIMM_WS2_CTR",
+      "routes": ["Y15"], "cop": ["BASIP"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LIMJ", "LIMG"] }, "level": { "fl": 180 } }
+      ] },
+
+    { "id": "mme-limm-tortu-n851", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIMM_WS2_CTR",
+      "routes": ["A9-TORTU-N851"], "cop": ["TORTU"],
+      "level": { "parity": "even" } },
+
+    { "id": "mme-limm-tortu", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIMM_WS2_CTR",
+      "routes": ["UN851-TORTU-M858", "A9-TORTU-M858", "FRA"], "cop": ["TORTU"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LIRP", "LIRQ"] }, "level": { "prohibited": true } },
+        { "when": { "arr": ["LSZA", "LSZL", "LSZS", "LIQS"] }, "level": { "fl": 360 } },
+        { "when": { "arr": ["LIP*"] }, "level": { "fl": 340 } },
+        { "when": { "arr": ["LIM*"], "arrExcept": ["LIMJ", "LIMG"] }, "level": { "fl": 320 }, "seeAlso": "3.2.2.1" },
+        { "when": { "dep": ["LFKJ", "LFKF"] }, "level": { "fl": 280 } },
+        { "when": { "arr": ["LIMJ", "LIMG"] }, "level": { "fl": 200 } }
+      ],
+      "seeAlso": "3.2.2.2" },
+
+    { "id": "mme-limm-meger", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIMM_WS2_CTR",
+      "routes": ["P980-MEGER-Z911", "Y16-MEGER-Z911", "FRA"], "cop": ["MEGER"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LIRP", "LIRQ"] }, "level": { "prohibited": true } },
+        { "when": { "arr": ["LSZA", "LSZL", "LSZS", "LIQS"] }, "level": { "fl": 360 } },
+        { "when": { "arr": ["LIP*"] }, "level": { "fl": 340 } },
+        { "when": { "arr": ["LIM*"], "arrExcept": ["LIMJ", "LIMG"] }, "level": { "fl": 320 }, "seeAlso": "3.2.2.1" },
+        { "when": { "arr": ["LIMJ", "LIMG"] }, "level": { "fl": 200 } }
+      ],
+      "seeAlso": "3.2.2.2" },
+
+    { "id": "limm-lfmn-star-bordi", "ref": "3.2.3", "from": "LIMM_WS2_CTR", "to": "LFMN_APP",
+      "routes": ["STAR BORDI R", "STAR BORDI V"], "cop": ["BORDI"],
+      "when": { "arr": ["LFMN", "LFMD", "LFTZ", "LFMF"] },
+      "level": { "fl": 150 },
+      "seeAlso": "3.2.3.1" },
+
+    { "id": "limm-lfmn-star-ozmic", "ref": "3.2.3", "from": "LIMM_WS2_CTR", "to": "LFMN_APP",
+      "routes": ["STAR OZMIC R", "STAR OZMIC V"], "cop": ["OZMIC"],
+      "when": { "arr": ["LFMN", "LFMD", "LFTZ", "LFMF"] },
+      "level": { "coordination": true },
+      "seeAlso": "3.2.3.2" },
+
+    { "id": "limm-lfmn-bordi-dep", "ref": "3.2.3", "from": "LIMM_WS2_CTR", "to": "LFMN_APP",
+      "routes": ["Z185", "N736"], "cop": ["BORDI"],
+      "when": { "dep": ["LIMJ"] },
+      "level": { "fl": 150 } },
+
+    { "id": "limm-lfmn-bordi-transit", "ref": "3.2.3", "from": "LIMM_WS2_CTR", "to": "LFMN_APP",
+      "routes": ["Z185", "N736"], "cop": ["BORDI"],
+      "when": { "transit": true, "rflAbove": 145, "rflBelow": 175 },
+      "level": { "options": [150, 170] } },
+
+    { "id": "lfmn-limm-basip-jet", "ref": "3.2.4", "from": "LFMN_APP", "to": "LIMM_WS2_CTR",
+      "routes": ["SID BASIP A", "SID BASIP X", "SID BASIP K", "SID BASIP J"], "cop": ["BASIP"],
+      "when": { "dep": ["LFMN", "LFMD"], "category": "jet" },
+      "level": { "fl": 160 },
+      "seeAlso": "3.2.4.1" },
+
+    { "id": "lfmn-limm-basip-prop", "ref": "3.2.4", "from": "LFMN_APP", "to": "LIMM_WS2_CTR",
+      "routes": ["SID BASIP A", "SID BASIP X", "SID BASIP K", "SID BASIP J"], "cop": ["BASIP"],
+      "when": { "dep": ["LFMN", "LFMD"], "category": "prop" },
+      "level": { "fl": 140 },
+      "seeAlso": "3.2.4.1" },
+
+    { "id": "lfmn-limm-usano", "ref": "3.2.4", "from": "LFMN_APP", "to": "LIMM_WS2_CTR",
+      "routes": ["SID USANO G", "SID USANO R"], "cop": ["BASIP"],
+      "when": { "dep": ["LFTZ"], "rflBelow": 195 },
+      "level": { "fl": 160 },
+      "seeAlso": "3.2.4.2" },
+
+    { "id": "lfmn-limm-y15-transit", "ref": "3.2.4", "from": "LFMN_APP", "to": "LIMM_WS2_CTR",
+      "routes": ["Y15"], "cop": ["BASIP"],
+      "when": { "transit": true, "rflAbove": 145, "rflBelow": 175 },
+      "level": { "fl": 160 } },
+
+    { "id": "limm-lfkb-ligur", "ref": "3.2.5", "from": "LIMM_WS2_CTR", "to": "LFKB_APP",
+      "routes": ["M858"], "cop": ["LIGUR"],
+      "when": { "arr": ["LFKB", "LFKC"] },
+      "level": { "fl": 150 },
+      "seeAlso": "3.2.5.1" },
+
+    { "id": "limm-lfkb-tortu-transit", "ref": "3.2.5", "from": "LIMM_WS2_CTR", "to": "LFKB_APP",
+      "routes": ["M858"], "cop": ["TORTU"],
+      "when": { "transit": true },
+      "level": { "options": [130, 110] } },
+
+    { "id": "lfkb-limm-tortu", "ref": "3.2.6", "from": "LFKB_APP", "to": "LIMM_WS2_CTR",
+      "routes": ["A9", "M858", "Z911"], "cop": ["TORTU"],
+      "when": { "dep": ["LFKC"] },
+      "level": { "fl": 140 },
+      "seeAlso": "3.2.6.1" },
+
+    { "id": "lfkb-limm-meger", "ref": "3.2.6", "from": "LFKB_APP", "to": "LIMM_WS2_CTR",
+      "routes": ["A9", "M858", "Z911"], "cop": ["MEGER"],
+      "when": { "dep": ["LFKB", "LFKC"] },
+      "level": { "fl": 140 } }
+  ],
+
+  "notes": {
+    "3.2.1.1": "Milano ACC est responsable de la compatibilite des vols convergeant vers KOLON via BORDI ou VAMTU.",
+    "3.2.2.1": "En cas d'arrivees simultanees par le meme COP, Milano ACC demande ARR LIME au-dessus de ARR LIMC au-dessus de ARR LIML (FL LIME > FL LIMC > FL LIML).",
+    "3.2.2.2": "Marseille ACC doit considerer les vols via MEGER et TORTU comme un flux unique.",
+    "3.2.3.1": "Ces trafics doivent croiser BORDI a FL170 ou en dessous. En cas de trafic simultane, FL160 et FL170 sont disponibles apres coordination.",
+    "3.2.3.2": "La STAR OZMIC exige une approbation de Nice APP. Si approuvee, Nice APP fournit un FL de transfert entre FL100 et FL150. Ces trafics doivent croiser OZMIC a FL170 ou en dessous.",
+    "3.2.4.1": "Departs Nice et Cannes uniquement : si l'espacement entre un jet derriere un propulseur est <= 20 NM, Nice assure la separation pour transferer le jet au-dessus du propulseur. Pour un Piaggio P-180 suivant un propulseur, le niveau de transfert du P-180 est soumis a coordination.",
+    "3.2.4.2": "Les departs LFTZ vers NOSTA (espace superieur) sont transferes par Nice APP a Marseille ACC avant PIGOS.",
+    "3.2.4.3": "En cas d'activite LI-D91bis Liguria, Nice APP ne doit pas guider les trafics a plus de 2,5 NM au sud de l'airway Y15.",
+    "3.2.5.1": "Les vols ARR LFKB ou LFKC doivent etre a FL150 au plus tard a LIGUR. Ils sont liberes en descente FL120 entre LIGUR et TORTU, Bastia APP assurant alors la separation avec le trafic oppose TORTU vers LIGUR. Si le transfert a FL150 stable a LIGUR est impossible, Milano coordonne le vol avec Marseille ACC.",
+    "3.2.6.1": "Le trafic de TORTU vers LIGUR est transfere a FL120 minimum (si RFL >= 120)."
+  },
+
+  "specialAreas": [
+    { "id": "LIMMDLG1LF", "name": "Zone permanente deleguee a Milano ACC",
+      "info": "Partie de l'espace francais (Marseille UIR) delegue a Milano ACC pour la fourniture d'ATS. Coordonnees a l'AIP France ENR 2.2.6.",
+      "vertical": "FL195-FL660", "ref": "2.3.1" },
+    { "id": "LFMMDLG1LI / LFMMDLG2HI / LFMMDLG2LO", "name": "Zones deleguees a Marseille ACC",
+      "info": "Parties de l'espace italien (Milano FIR/UIR) deleguees a Marseille ACC. Coordonnees a l'AIP France ENR 2.2.6.",
+      "vertical": "FL195-FL660 et FL175-FL660", "ref": "2.3.2" },
+    { "id": "LFMNDLG1LI / LFMNDLG2LI", "name": "Zones deleguees a Nice APP",
+      "info": "Parties de l'espace italien (Milano FIR/UIR) deleguees a Nice APP. Coordonnees a l'AIP France ENR 2.2.6.",
+      "vertical": "FL105-FL175 et FL95-FL175", "ref": "2.3.3" },
+    { "id": "LI-D91bis", "name": "Liguria",
+      "info": "Milano ACC informe Nice APP et Marseille ACC de l'activite.",
+      "effects": ["Nice APP ne guide pas les trafics a plus de 2,5 NM au sud de Y15 (3.2.4.3)"],
+      "ref": "2.3.4" },
+    { "id": "LI-R4 / LI-R64 / LI-R64bis", "name": "Fossano, Cuneo, Barge",
+      "info": "Milano ACC informe Marseille ACC de l'activite.",
+      "effects": ["Interference avec VAMTU-KOLON : reroutage via BORDI-KOLON"],
+      "ref": "2.3.5" },
+    { "id": "LI-TSA72 / LI-D5A / LI-D5B", "name": "TSA 72 et D5A/B",
+      "info": "Milano ACC informe Marseille ACC de l'activite.",
+      "effects": ["En cas d'activite TSA 72, les vols sont transferes a un niveau inferieur a FL380"],
+      "ref": "2.3.6" }
+  ],
+
+  "changelog": [
+    { "version": "v4.0", "date": "19/03/2026",
+      "changes": ["Nouveau format", "Conditions d'echange", "Espace LFMM ACC"] }
+  ]
+}

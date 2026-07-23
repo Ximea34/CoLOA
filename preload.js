@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld("loa", {
   onAtc: (cb) => ipcRenderer.on("atc", (_e, data) => cb(data)),
   onSelection: (cb) => ipcRenderer.on("selection", (_e, data) => cb(data)),
   onTrouble: (cb) => ipcRenderer.on("trouble", (_e, data) => cb(data)),
+  onPinned: (cb) => ipcRenderer.on("pinned", (_e, data) => cb(data)),
 });
