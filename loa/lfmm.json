@@ -79,7 +79,7 @@
       ] },
 
     { "id": "w2e-ablak-abili", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
-      "cop": ["ABLAK-ABILI"],
+      "cop": ["ABLAK-ABILI", "ABLAK"],
       "level": { "coordination": true },
       "exceptions": [
         { "when": { "arr": ["LFMN"] }, "level": { "fl": 220, "at": "ABLAK" } },

@@ -207,8 +207,13 @@ async function tick(force) {
   let callsign = null;
 
   try {
-    const pos = await aurora.request("#TRPOS;%SELTFC%");
-    callsign = pos && pos.callsign;
+    // #TRPOS;%SELTFC% fait fermer la connexion cote Aurora quand rien n'est
+    // selectionne (constate en session, jamais documente ailleurs). On
+    // verifie d'abord avec #SELTFC seul, qui lui ne casse rien, avant de
+    // s'en servir — #TRPOS;%SELTFC% devient alors sans risque puisqu'on
+    // vient de confirmer qu'un avion est selectionne.
+    const sel = await aurora.request("#SELTFC");
+    callsign = sel && sel.callsign;
     failures = 0;
 
     if (!callsign) return announceSelection(null);
@@ -218,6 +223,7 @@ async function tick(force) {
     if (!isNew && Date.now() - lastRefresh < REFRESH_MS) return;
 
     announceSelection(callsign);
+    const pos = await aurora.request("#TRPOS;%SELTFC%");
     const row = await buildRow(callsign, pos);
 
     lastCallsign = callsign;
