@@ -1,0 +1,86 @@
+/* shell.css — s'appuie sur les variables/classes de style.css (theme, boutons). */
+
+.shell-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.shell-header .station {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.shell-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.module-btn {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.module-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+.tab-strip {
+  display: flex;
+  gap: 6px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 6px 5px 10px;
+  cursor: pointer;
+}
+.tab.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+.tab button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.7;
+}
+.tab button:hover { opacity: 1; }
+
+.shell-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.module-view {
+  flex: 1;
+  width: 100%;
+  display: none;
+}
+.module-view.active { display: flex; }

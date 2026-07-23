@@ -6,6 +6,12 @@ const el = (id) => document.getElementById(id);
 const form = el("form");
 const result = el("result");
 
+const mode = new URLSearchParams(location.search).get("mode") || "undocked";
+if (mode !== "docked") {
+  el("dock").hidden = false;
+  el("dock").addEventListener("click", () => window.manuel.dock());
+}
+
 let sector = "LFMM_W";
 
 function setSector(s) {

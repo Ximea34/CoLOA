@@ -1,11 +1,453 @@
 {
   "airport": "LFLL",
-  "runwayConfigs": ["17", "35"],
+  "runwayConfigs": [
+    "17L",
+    "17R",
+    "35L",
+    "35R"
+  ],
   "separationMinutes": {
-    "H": { "H": 4, "M": 5, "L": 6, "J": 6 },
-    "M": { "H": 3, "M": 3, "L": 4, "J": 5 },
-    "L": { "H": 3, "M": 3, "L": 3, "J": 4 },
-    "J": { "H": 2, "M": 3, "L": 4, "J": 4 }
+    "H": {
+      "H": 4,
+      "M": 5,
+      "L": 6,
+      "J": 6
+    },
+    "M": {
+      "H": 3,
+      "M": 3,
+      "L": 4,
+      "J": 5
+    },
+    "L": {
+      "H": 3,
+      "M": 3,
+      "L": 3,
+      "J": 4
+    },
+    "J": {
+      "H": 2,
+      "M": 3,
+      "L": 4,
+      "J": 4
+    }
   },
-  "defaultSeparationMinutes": 3
+  "defaultSeparationMinutes": 3,
+  "points": {
+    "TALAR": {
+      "lat": 45.956389,
+      "lon": 4.604361,
+      "speedKt": 250,
+      "radiusNm": 1.5
+    },
+    "LL714": {
+      "lat": 46.005556,
+      "lon": 4.869444,
+      "speedKt": 240,
+      "radiusNm": 1.5
+    },
+    "LL712": {
+      "lat": 46,
+      "lon": 4.964722,
+      "speedKt": 230,
+      "radiusNm": 1.5
+    },
+    "LL710": {
+      "lat": 45.994444,
+      "lon": 5.059722,
+      "speedKt": 220,
+      "radiusNm": 1.5
+    },
+    "EKMEP": {
+      "lat": 45.928167,
+      "lon": 5.068306,
+      "speedKt": 210,
+      "radiusNm": 1.5
+    },
+    "FL17L": {
+      "lat": 45.847861,
+      "lon": 5.078111,
+      "speedKt": 180,
+      "radiusNm": 1.5
+    },
+    "SEUIL_17L": {
+      "lat": 45.734942,
+      "lon": 5.091869,
+      "speedKt": 140,
+      "radiusNm": 1.5
+    },
+    "RIPTU": {
+      "lat": 46.106944,
+      "lon": 5.329167,
+      "speedKt": 250,
+      "radiusNm": 1.5
+    },
+    "LL713": {
+      "lat": 46.063083,
+      "lon": 5.223778,
+      "speedKt": 240,
+      "radiusNm": 1.5
+    },
+    "LL711": {
+      "lat": 46.028778,
+      "lon": 5.141694,
+      "speedKt": 230,
+      "radiusNm": 1.5
+    },
+    "ARBON": {
+      "lat": 45.283278,
+      "lon": 4.890167,
+      "speedKt": 250,
+      "radiusNm": 1.5
+    },
+    "LL706": {
+      "lat": 45.55,
+      "lon": 4.983333,
+      "speedKt": 240,
+      "radiusNm": 1.5
+    },
+    "LL704": {
+      "lat": 45.794806,
+      "lon": 4.948417,
+      "speedKt": 235,
+      "radiusNm": 1.5
+    },
+    "LL702": {
+      "lat": 45.861111,
+      "lon": 4.938889,
+      "speedKt": 225,
+      "radiusNm": 1.5
+    },
+    "LL700": {
+      "lat": 45.923611,
+      "lon": 4.970833,
+      "speedKt": 220,
+      "radiusNm": 1.5
+    },
+    "GOMET": {
+      "lat": 45.360194,
+      "lon": 5.488,
+      "speedKt": 250,
+      "radiusNm": 1.5
+    },
+    "LL719": {
+      "lat": 45.506944,
+      "lon": 5.359722,
+      "speedKt": 245,
+      "radiusNm": 1.5
+    },
+    "LL709": {
+      "lat": 45.650111,
+      "lon": 5.351222,
+      "speedKt": 240,
+      "radiusNm": 1.5
+    },
+    "LL707": {
+      "lat": 45.763889,
+      "lon": 5.344444,
+      "speedKt": 235,
+      "radiusNm": 1.5
+    },
+    "LL705": {
+      "lat": 45.836111,
+      "lon": 5.290278,
+      "speedKt": 225,
+      "radiusNm": 1.5
+    },
+    "LL703": {
+      "lat": 45.885278,
+      "lon": 5.226667,
+      "speedKt": 220,
+      "radiusNm": 1.5
+    },
+    "LL701": {
+      "lat": 45.934722,
+      "lon": 5.1625,
+      "speedKt": 215,
+      "radiusNm": 1.5
+    },
+    "ARPOB": {
+      "lat": 45.929056,
+      "lon": 5.063667,
+      "speedKt": 210,
+      "radiusNm": 1.5
+    },
+    "FL17R": {
+      "lat": 45.860917,
+      "lon": 5.072,
+      "speedKt": 180,
+      "radiusNm": 1.5
+    },
+    "SEUIL_17R": {
+      "lat": 45.746589,
+      "lon": 5.085939,
+      "speedKt": 140,
+      "radiusNm": 1.5
+    },
+    "LL504": {
+      "lat": 45.593056,
+      "lon": 4.858333,
+      "speedKt": 240,
+      "radiusNm": 1.5
+    },
+    "LL502": {
+      "lat": 45.558583,
+      "lon": 4.939028,
+      "speedKt": 230,
+      "radiusNm": 1.5
+    },
+    "LL500": {
+      "lat": 45.523889,
+      "lon": 5.02,
+      "speedKt": 220,
+      "radiusNm": 1.5
+    },
+    "NEGPU": {
+      "lat": 45.529556,
+      "lon": 5.11225,
+      "speedKt": 210,
+      "radiusNm": 1.5
+    },
+    "FL35L": {
+      "lat": 45.599833,
+      "lon": 5.10375,
+      "speedKt": 180,
+      "radiusNm": 1.5
+    },
+    "SEUIL_35L": {
+      "lat": 45.710747,
+      "lon": 5.0903,
+      "speedKt": 140,
+      "radiusNm": 1.5
+    },
+    "LL505": {
+      "lat": 45.641667,
+      "lon": 5.322222,
+      "speedKt": 240,
+      "radiusNm": 1.5
+    },
+    "LL503": {
+      "lat": 45.588472,
+      "lon": 5.265778,
+      "speedKt": 230,
+      "radiusNm": 1.5
+    },
+    "LL501": {
+      "lat": 45.535,
+      "lon": 5.209167,
+      "speedKt": 220,
+      "radiusNm": 1.5
+    },
+    "LL514": {
+      "lat": 45.364278,
+      "lon": 4.995528,
+      "speedKt": 240,
+      "radiusNm": 1.5
+    },
+    "LL512": {
+      "lat": 45.413417,
+      "lon": 5.0595,
+      "speedKt": 230,
+      "radiusNm": 1.5
+    },
+    "LL510": {
+      "lat": 45.4625,
+      "lon": 5.123611,
+      "speedKt": 220,
+      "radiusNm": 1.5
+    },
+    "LL513": {
+      "lat": 45.413278,
+      "lon": 5.299583,
+      "speedKt": 240,
+      "radiusNm": 1.5
+    },
+    "LL511": {
+      "lat": 45.437917,
+      "lon": 5.211639,
+      "speedKt": 230,
+      "radiusNm": 1.5
+    },
+    "INGUV": {
+      "lat": 45.529667,
+      "lon": 5.11675,
+      "speedKt": 210,
+      "radiusNm": 1.5
+    },
+    "FL35R": {
+      "lat": 45.599944,
+      "lon": 5.10825,
+      "speedKt": 180,
+      "radiusNm": 1.5
+    },
+    "SEUIL_35R": {
+      "lat": 45.711006,
+      "lon": 5.094781,
+      "speedKt": 140,
+      "radiusNm": 1.5
+    }
+  },
+  "transitions": {
+    "17L": {
+      "TALAR": [
+        "TALAR",
+        "LL714",
+        "LL712",
+        "LL710",
+        "EKMEP",
+        "FL17L",
+        "SEUIL_17L"
+      ],
+      "RIPTU": [
+        "RIPTU",
+        "LL713",
+        "LL711",
+        "LL710",
+        "EKMEP",
+        "FL17L",
+        "SEUIL_17L"
+      ],
+      "ARBON": [
+        "ARBON",
+        "LL706",
+        "LL704",
+        "LL702",
+        "LL700",
+        "EKMEP",
+        "FL17L",
+        "SEUIL_17L"
+      ],
+      "GOMET": [
+        "GOMET",
+        "LL719",
+        "LL709",
+        "LL707",
+        "LL705",
+        "LL703",
+        "LL701",
+        "EKMEP",
+        "FL17L",
+        "SEUIL_17L"
+      ]
+    },
+    "17R": {
+      "TALAR": [
+        "TALAR",
+        "LL714",
+        "LL712",
+        "LL710",
+        "ARPOB",
+        "FL17R",
+        "SEUIL_17R"
+      ],
+      "RIPTU": [
+        "RIPTU",
+        "LL713",
+        "LL711",
+        "LL710",
+        "ARPOB",
+        "FL17R",
+        "SEUIL_17R"
+      ],
+      "ARBON": [
+        "ARBON",
+        "LL706",
+        "LL704",
+        "LL702",
+        "LL700",
+        "ARPOB",
+        "FL17R",
+        "SEUIL_17R"
+      ],
+      "GOMET": [
+        "GOMET",
+        "LL719",
+        "LL709",
+        "LL707",
+        "LL705",
+        "LL703",
+        "LL701",
+        "ARPOB",
+        "FL17R",
+        "SEUIL_17R"
+      ]
+    },
+    "35L": {
+      "TALAR": [
+        "TALAR",
+        "LL504",
+        "LL502",
+        "LL500",
+        "NEGPU",
+        "FL35L",
+        "SEUIL_35L"
+      ],
+      "RIPTU": [
+        "RIPTU",
+        "LL505",
+        "LL503",
+        "LL501",
+        "NEGPU",
+        "FL35L",
+        "SEUIL_35L"
+      ],
+      "ARBON": [
+        "ARBON",
+        "LL514",
+        "LL512",
+        "LL510",
+        "NEGPU",
+        "FL35L",
+        "SEUIL_35L"
+      ],
+      "GOMET": [
+        "GOMET",
+        "LL513",
+        "LL511",
+        "LL510",
+        "NEGPU",
+        "FL35L",
+        "SEUIL_35L"
+      ]
+    },
+    "35R": {
+      "TALAR": [
+        "TALAR",
+        "LL504",
+        "LL502",
+        "LL500",
+        "INGUV",
+        "FL35R",
+        "SEUIL_35R"
+      ],
+      "RIPTU": [
+        "RIPTU",
+        "LL505",
+        "LL503",
+        "LL501",
+        "INGUV",
+        "FL35R",
+        "SEUIL_35R"
+      ],
+      "ARBON": [
+        "ARBON",
+        "LL514",
+        "LL512",
+        "LL510",
+        "INGUV",
+        "FL35R",
+        "SEUIL_35R"
+      ],
+      "GOMET": [
+        "GOMET",
+        "LL513",
+        "LL511",
+        "LL510",
+        "INGUV",
+        "FL35R",
+        "SEUIL_35R"
+      ]
+    }
+  },
+  "guidage": {}
 }

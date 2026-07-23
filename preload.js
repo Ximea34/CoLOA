@@ -4,12 +4,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("loa", {
-  connect: () => ipcRenderer.send("connect"),
-  disconnect: () => ipcRenderer.send("disconnect"),
   window: (action) => ipcRenderer.send("window", action),
-  openDebug: () => ipcRenderer.send("debug:open"),
   toggleScan: () => ipcRenderer.send("scan:toggle"),
-  openManuel: () => ipcRenderer.send("manuel:open"),
+  dock: () => ipcRenderer.send("module:dock", "loa"),
   onStatus: (cb) => ipcRenderer.on("status", (_e, data) => cb(data)),
   onRow: (cb) => ipcRenderer.on("row", (_e, data) => cb(data)),
   onAtc: (cb) => ipcRenderer.on("atc", (_e, data) => cb(data)),

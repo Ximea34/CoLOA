@@ -8,11 +8,20 @@ const MAX_ROWS = 60;
 let connected = false;
 let scanActive = false;
 
+// --- mode docked/undocked ----------------------------------------------------
+// Docke (onglet dans la fenetre de base) : pas de cadre de fenetre a soi, pas
+// de bouton "Rattacher". Detache (fenetre a part) : cadre + "Rattacher" pour
+// redemander un onglet a la fenetre de base.
+const mode = new URLSearchParams(location.search).get("mode") || "undocked";
+if (mode === "docked") {
+  el("winControls").hidden = true;
+} else {
+  el("dock").hidden = false;
+  el("dock").addEventListener("click", () => window.loa.dock());
+}
+
 // --- barre de titre et etat -------------------------------------------------
 
-el("connect").addEventListener("click", () => {
-  connected ? window.loa.disconnect() : window.loa.connect();
-});
 el("pin").addEventListener("click", () => window.loa.window("pin"));
 el("min").addEventListener("click", () => window.loa.window("minimize"));
 el("max").addEventListener("click", () => window.loa.window("maximize"));
@@ -23,9 +32,7 @@ el("clear").addEventListener("click", () => {
   rows.innerHTML = "";
   showEmpty("Historique vidé. Sélectionne un avion dans Aurora.");
 });
-el("debug").addEventListener("click", () => window.loa.openDebug());
 el("scan").addEventListener("click", () => window.loa.toggleScan());
-el("manuel").addEventListener("click", () => window.loa.openManuel());
 
 window.loa.onScanMode((d) => {
   scanActive = d.active;
@@ -52,8 +59,6 @@ window.loa.onStatus((s) => {
   el("dot").dataset.state = s.state;
   connected = s.state === "connected";
 
-  el("connect").textContent = connected ? "Déconnecter" : "Connect to Aurora";
-  el("connect").dataset.on = String(connected);
   el("station").textContent = connected ? s.station : "";
   el("sector").textContent = connected ? s.station : "";
 

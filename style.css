@@ -98,6 +98,7 @@ body {
 }
 
 .win { display: flex; height: 100%; margin-left: 4px; }
+.win[hidden] { display: none; }
 .win button {
   width: 42px;
   height: 100%;

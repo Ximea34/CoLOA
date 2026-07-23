@@ -6,4 +6,5 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("manuel", {
   evaluate: (params) => ipcRenderer.invoke("manuel:evaluate", params),
+  dock: () => ipcRenderer.send("module:dock", "manuel"),
 });

@@ -14,6 +14,7 @@
 
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
+const { pathToFileURL } = require("url");
 const { AuroraClient } = require("./aurora-client");
 const { evaluate, fixesFromRoute, DB } = require("./loa-engine");
 const { computeSequence } = require("./aman-engine");
@@ -53,14 +54,24 @@ let reconnectTimer = null;
 let scanMode = false;
 let scanStop = true;
 let scanRunning = false;
-const trafficCache = new Map(); // indicatif -> { fp, path, fpAt }
+const trafficCache = new Map(); // indicatif -> { fp, path, fpAt, pos }
 let trList = [];
 let trFetchedAt = 0;
 
+// Etat de progression AMAN par indicatif (jusqu'ou l'avion a avance sur sa
+// transition), memorise d'un rafraichissement a l'autre — necessaire car
+// "un point est franchi" est un evenement (l'avion peut deja etre ressorti
+// de sa petite zone de detection au rafraichissement suivant). Nettoye avec
+// le reste du cache quand l'indicatif quitte la liste #TR.
+const amanPointStates = new Map(); // indicatif -> { key, index }
+
 // La boucle de cache tourne des qu'elle sert a quelque chose : le mode
-// balayage (affichage) ou la fenetre AMAN ouverte (sequencement).
+// balayage (affichage), ou l'AMAN interroge recemment (docke ou non — un
+// <webview> docke n'a pas de fenetre a tester, donc on se base sur son
+// activite plutot que sur l'existence d'une BrowserWindow).
+let lastAmanComputeAt = 0;
 function cacheNeeded() {
-  return scanMode || (amanWin && !amanWin.isDestroyed());
+  return scanMode || Date.now() - lastAmanComputeAt < 15000;
 }
 
 function syncCacheLoop() {
@@ -119,19 +130,35 @@ function createDebugWindow() {
   debugWin.on("closed", () => { debugWin = null; });
 }
 
+// Diffuse a toute cible qui peut ecouter : fenetres detachees (win/amanWin/
+// manuelWin) et <webview> dockes dans la fenetre de base (ajoutes/retires via
+// did-attach-webview, voir createShellWindow). Chaque cible n'ecoute que les
+// canaux exposes par son propre preload — recevoir un canal non ecoute ne
+// fait rien, diffuser partout est sans risque.
+const broadcastTargets = new Set();
+
+function send(channel, payload) {
+  for (const wc of broadcastTargets) {
+    if (wc && !wc.isDestroyed()) wc.send(channel, payload);
+  }
+}
+
+function sendToShell(channel, payload) {
+  if (shellWin && !shellWin.isDestroyed()) shellWin.webContents.send(channel, payload);
+}
+
 // Consultation manuelle : fonctionne sans Aurora, aucune dependance a `aurora`
 // ou `myStation` — l'utilisateur fournit lui-meme dep/arr/secteur.
 let manuelWin = null;
 
-function createManuelWindow() {
+function createManuelWindow(mode = "undocked") {
   if (manuelWin && !manuelWin.isDestroyed()) {
     manuelWin.show();
     manuelWin.focus();
     return;
   }
-  manuelWin = new BrowserWindow({
+  const w = new BrowserWindow({
     width: 640, height: 560, minWidth: 480, minHeight: 400,
-    parent: win || undefined,
     backgroundColor: "#16181b",
     title: "Consultation manuelle — Assistant LoA",
     webPreferences: {
@@ -140,21 +167,24 @@ function createManuelWindow() {
       nodeIntegration: false,
     },
   });
-  manuelWin.loadFile("manuel.html");
-  manuelWin.on("closed", () => { manuelWin = null; });
+  w.loadFile("manuel.html", { query: { mode } });
+  manuelWin = w;
+  const wc = w.webContents;
+  broadcastTargets.add(wc);
+  w.on("closed", () => { broadcastTargets.delete(wc); if (manuelWin === w) manuelWin = null; });
 }
 
 // AMAN : consomme le cache trafic partage (voir syncCacheLoop) — ne demarre
 // jamais sa propre boucle de sondage Aurora.
 let amanWin = null;
 
-function createAmanWindow() {
+function createAmanWindow(mode = "undocked") {
   if (amanWin && !amanWin.isDestroyed()) {
     amanWin.show();
     amanWin.focus();
     return;
   }
-  amanWin = new BrowserWindow({
+  const w = new BrowserWindow({
     width: 900, height: 620, minWidth: 700, minHeight: 420,
     backgroundColor: "#16181b",
     title: "AMAN — Assistant LoA",
@@ -164,33 +194,20 @@ function createAmanWindow() {
       nodeIntegration: false,
     },
   });
-  amanWin.loadFile("aman.html");
-  amanWin.on("closed", () => { amanWin = null; syncCacheLoop(); });
-  syncCacheLoop();
+  w.loadFile("aman.html", { query: { mode } });
+  amanWin = w;
+  const wc = w.webContents;
+  broadcastTargets.add(wc);
+  w.on("closed", () => { broadcastTargets.delete(wc); if (amanWin === w) amanWin = null; });
 }
 
-// Ecran de lancement : premier point d'entree de l'app, choix entre
-// l'assistant LoA et l'AMAN.
-let launcherWin = null;
-
-function createLauncherWindow() {
-  launcherWin = new BrowserWindow({
-    width: 420, height: 300,
-    resizable: false,
-    backgroundColor: "#16181b",
-    title: "Assistant LoA",
-    webPreferences: {
-      preload: path.join(__dirname, "launcher-preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-  launcherWin.loadFile("launcher.html");
-  launcherWin.on("closed", () => { launcherWin = null; });
-}
-
-function createWindow() {
-  win = new BrowserWindow({
+function createWindow(mode = "undocked") {
+  if (win && !win.isDestroyed()) {
+    win.show();
+    win.focus();
+    return;
+  }
+  const w = new BrowserWindow({
     width: 940, height: 580, minWidth: 660, minHeight: 320,
     frame: false,
     backgroundColor: "#16181b",
@@ -200,18 +217,37 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
-  win.loadFile("index.html");
-  win.on("closed", () => { win = null; });
+  w.loadFile("index.html", { query: { mode } });
+  win = w;
+  const wc = w.webContents;
+  broadcastTargets.add(wc);
+  w.on("closed", () => { broadcastTargets.delete(wc); if (win === w) win = null; });
 }
 
-// Diffuse a toutes les fenetres qui peuvent ecouter (LoA + AMAN, l'AMAN
-// pouvant se connecter seul sans jamais ouvrir la fenetre LoA). Chaque
-// fenetre n'ecoute que les canaux exposes par son propre preload — recevoir
-// un canal non ecoute ne fait rien, diffuser partout est sans risque.
-function send(channel, payload) {
-  for (const w of [win, amanWin]) {
-    if (w && !w.isDestroyed()) w.webContents.send(channel, payload);
-  }
+// Fenetre de base : connexion Aurora + Debug centralises, modules ouverts en
+// onglets (<webview> docke) ou detaches en fenetre a part (module:undock).
+let shellWin = null;
+
+function createShellWindow() {
+  shellWin = new BrowserWindow({
+    width: 1100, height: 720, minWidth: 760, minHeight: 480,
+    backgroundColor: "#16181b",
+    title: "Assistant LoA",
+    webPreferences: {
+      preload: path.join(__dirname, "shell-preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webviewTag: true,
+    },
+  });
+  shellWin.loadFile("shell.html");
+  broadcastTargets.add(shellWin.webContents);
+  shellWin.webContents.on("did-attach-webview", (_event, webContents) => {
+    broadcastTargets.add(webContents);
+    webContents.on("destroyed", () => broadcastTargets.delete(webContents));
+  });
+  const wc = shellWin.webContents;
+  shellWin.on("closed", () => { broadcastTargets.delete(wc); shellWin = null; });
 }
 
 let lastReport = 0;
@@ -336,7 +372,10 @@ async function scanOnce() {
       trList = list;
       trFetchedAt = Date.now();
       for (const cs of [...trafficCache.keys()]) {
-        if (!trList.includes(cs)) trafficCache.delete(cs); // plus visible : hors cache
+        if (!trList.includes(cs)) {
+          trafficCache.delete(cs); // plus visible : hors cache
+          amanPointStates.delete(cs);
+        }
       }
     }
   }
@@ -370,7 +409,9 @@ async function scanOnce() {
       debugPush("err", "engine", `${callsign} : #TRPOS refuse en balayage (${e.message})`);
       return null;
     });
-    if (!pos || pos.assumedBy !== myStation) continue; // pas a moi : ignore mais reste en cache
+    if (pos) entry.pos = pos; // utilise par l'AMAN, quel que soit l'assumed
+
+    if (!pos || pos.assumedBy !== myStation) continue; // pas a moi : ignore le balayage, reste en cache
 
     const result = evaluate({ myStation, fp: entry.fp, pos, path: entry.path, onlineATC });
     const hasGap = result.matched && (
@@ -518,7 +559,6 @@ ipcMain.on("connect", connect);
 ipcMain.on("disconnect", disconnect);
 ipcMain.on("scan:toggle", () => setScanMode(!scanMode));
 
-ipcMain.on("manuel:open", createManuelWindow);
 ipcMain.handle("manuel:evaluate", (_e, { dep, arr, waypoint, sector }) => {
   const mySector = sector === "LFMM_E" ? "LFMM_E_CTR" : "LFMM_W_CTR";
   const fp = {
@@ -533,23 +573,49 @@ ipcMain.handle("manuel:evaluate", (_e, { dep, arr, waypoint, sector }) => {
   return evaluate({ myStation: mySector, fp, pos: {}, path, onlineATC: [] });
 });
 
-ipcMain.on("aman:open", createAmanWindow);
 ipcMain.handle("aman:config", (_e, airport) => {
   const icao = String(airport || "").toUpperCase();
   const { config, error } = loadAmanConfig(path.join(__dirname, "AMAN"), icao);
   return { runwayConfigs: config?.runwayConfigs || [], error: config ? null : error };
 });
 ipcMain.handle("aman:compute", (_e, { airport, runwayConfig }) => {
+  lastAmanComputeAt = Date.now();
+  syncCacheLoop();
+
   const icao = String(airport || "").toUpperCase();
   const { config, error } = loadAmanConfig(path.join(__dirname, "AMAN"), icao);
-  if (!config) return { airport: icao, runwayConfig, gates: [], error };
+  if (!config) return { airport: icao, runwayConfig, sequence: [], error };
 
   const traffic = [...trafficCache.entries()].map(([callsign, entry]) => ({
     callsign,
     fp: entry.fp,
     path: entry.path,
+    pos: entry.pos,
   }));
-  return computeSequence({ airport: icao, runwayConfig, traffic, config });
+
+  // Diagnostic : pour chaque avion candidat par destination, on trace dans la
+  // fenetre de debug pourquoi il entre ou non dans une porte — sans ca, une
+  // exclusion (pas IFR, pas de position, pas de transition configuree...)
+  // est silencieuse.
+  for (const ac of traffic) {
+    if (!ac.fp || ac.fp.arr !== icao) continue;
+    const fixes = (ac.path || []).map((p) => (typeof p === "string" ? p : p.fix));
+    debugPush(
+      "info",
+      "aman",
+      `${ac.callsign} -> ${icao} : rules=${ac.fp.rules || "?"} wake=${ac.fp.wake || "?"} ` +
+      `pos=${ac.pos ? `${ac.pos.lat},${ac.pos.lon} ${ac.pos.groundSpeed}kt sol=${ac.pos.onGround}` : "aucune"} ` +
+      `route=${fixes.join(" ") || "(vide)"}`
+    );
+  }
+
+  const pointStates = Object.fromEntries(amanPointStates);
+  const result = computeSequence({ airport: icao, runwayConfig, traffic, config, pointStates });
+  amanPointStates.clear();
+  for (const [callsign, state] of Object.entries(result.pointStates || {})) {
+    amanPointStates.set(callsign, state);
+  }
+  return result;
 });
 
 ipcMain.on("window", (_e, action) => {
@@ -567,13 +633,33 @@ ipcMain.on("window", (_e, action) => {
 ipcMain.on("debug:open", createDebugWindow);
 ipcMain.on("debug:clear", () => { debugLog = []; });
 
-ipcMain.on("launch:loa", () => {
-  if (launcherWin && !launcherWin.isDestroyed()) launcherWin.close();
-  createWindow();
+// Detacher/rattacher un module : la fenetre de base gere ses onglets cote
+// rendu (voir shell-renderer.js), main.js n'a qu'a ouvrir/fermer la vraie
+// fenetre et prevenir la fenetre de base quand il faut recreer l'onglet.
+const MODULE_FACTORIES = { loa: createWindow, aman: createAmanWindow, manuel: createManuelWindow };
+function moduleWindowFor(id) {
+  return { loa: win, aman: amanWin, manuel: manuelWin }[id];
+}
+
+const MODULE_FILES = {
+  loa: { src: "index.html", preload: "preload.js" },
+  aman: { src: "aman.html", preload: "aman-preload.js" },
+  manuel: { src: "manuel.html", preload: "manuel-preload.js" },
+};
+ipcMain.handle("module:info", (_e, id) => {
+  const m = MODULE_FILES[id];
+  if (!m) return null;
+  return { src: `${m.src}?mode=docked`, preload: pathToFileURL(path.join(__dirname, m.preload)).toString() };
 });
-ipcMain.on("launch:aman", () => {
-  if (launcherWin && !launcherWin.isDestroyed()) launcherWin.close();
-  createAmanWindow();
+
+ipcMain.on("module:undock", (_e, id) => {
+  const factory = MODULE_FACTORIES[id];
+  if (factory) factory("undocked");
+});
+ipcMain.on("module:dock", (_e, id) => {
+  const w = moduleWindowFor(id);
+  if (w && !w.isDestroyed()) w.close();
+  sendToShell("module:redock", { id });
 });
 
 // Chargement des fichiers LOA (loa/*.json) : jamais silencieux, meme si le
@@ -582,6 +668,6 @@ ipcMain.on("launch:aman", () => {
 (DB.warnings || []).forEach((w) => { console.warn("[loa]", w); debugPush("info", "app", w); });
 debugPush("info", "app", `LOA chargees : ${(DB.sources || []).join(", ") || "aucune"} (${DB.rules.length} regles)`);
 
-app.whenReady().then(createLauncherWindow);
+app.whenReady().then(createShellWindow);
 app.on("window-all-closed", () => { wanted = false; stopTimers(); app.quit(); });
-app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createLauncherWindow(); });
+app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createShellWindow(); });

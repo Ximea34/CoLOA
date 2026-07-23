@@ -12,9 +12,9 @@
   <div class="brand">Assistant LoA<span class="sector" id="sector"></span></div>
 
   <div class="controls">
-    <button id="connect" class="connect">Connect to Aurora</button>
     <span class="station" id="station"></span>
-    <div class="win">
+    <button id="dock" class="ghost" hidden>Rattacher</button>
+    <div class="win" id="winControls">
       <button id="pin" aria-label="Toujours au premier plan"><svg viewBox="0 0 10 10"><circle cx="5" cy="3.3" r="2"/><path d="M5 5.3v3.4"/></svg></button>
       <button id="min" aria-label="Réduire"><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></button>
       <button id="max" aria-label="Agrandir"><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></button>
@@ -45,8 +45,6 @@
   <span id="atc"></span>
   <button id="clear" class="ghost">Vider l'historique</button>
   <button id="scan" class="ghost" title="Bascule mono-avion / balayage global">Balayage</button>
-  <button id="manuel" class="ghost" title="Consultation manuelle, sans Aurora">Manuel</button>
-  <button id="debug" class="ghost">Debug</button>
 </footer>
 
 <script src="renderer.js"></script>

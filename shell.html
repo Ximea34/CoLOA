@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+<title>Assistant LoA</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="shell.css">
+</head>
+<body class="shell-body">
+
+<header class="shell-header">
+  <div class="brand">Assistant LoA</div>
+  <button id="connect" class="connect">Connect to Aurora</button>
+  <span class="station" id="station"></span>
+  <span class="grow"></span>
+  <button id="debugOpen" class="ghost">Debug</button>
+</header>
+
+<div class="shell-tabs" id="tabs">
+  <button class="module-btn" data-module="loa">Assistant LoA</button>
+  <button class="module-btn" data-module="aman">AMAN</button>
+  <button class="module-btn" data-module="manuel">Manuel</button>
+  <div class="tab-strip" id="tabStrip"></div>
+</div>
+
+<div class="shell-content" id="content">
+  <p class="empty" id="emptyContent">Ouvre un module ci-dessus.</p>
+</div>
+
+<script src="shell-renderer.js"></script>
+</body>
+</html>

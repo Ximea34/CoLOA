@@ -13,6 +13,7 @@ function visible(dir, tag) {
   if (filter === "err") return dir === "err";
   if (filter === "tcp") return tag === "tcp" || tag === "socket";
   if (filter === "engine") return tag === "engine";
+  if (filter === "aman") return tag === "aman";
   return true;
 }
 

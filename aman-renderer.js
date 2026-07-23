@@ -12,23 +12,20 @@ let useLocal = false;
 let lastParams = null;
 let lastResult = null;
 let refreshTimer = null;
-let connected = false;
 
-// Connexion Aurora : memes canaux IPC que la fenetre Assistant LoA — l'AMAN
-// peut etre lance seul depuis l'ecran de lancement, sans jamais ouvrir
-// l'autre fenetre, donc il lui faut son propre controle de connexion.
-el("connect").addEventListener("click", () => {
-  connected ? window.aman.disconnect() : window.aman.connect();
-});
-
+// Connexion Aurora centralisee dans la fenetre de base : ici on n'affiche
+// que l'etat, en lecture seule.
 window.aman.onStatus((s) => {
-  connected = s.state === "connected";
-  el("connect").textContent = connected ? "Déconnecter" : "Connect to Aurora";
-  el("connect").dataset.on = String(connected);
   el("dot").dataset.state = s.state;
   const labels = { idle: "Hors ligne", connecting: "Connexion…", connected: "Connecté", error: "Erreur" };
   el("state").textContent = labels[s.state] || s.state;
 });
+
+const mode = new URLSearchParams(location.search).get("mode") || "undocked";
+if (mode !== "docked") {
+  el("dock").hidden = false;
+  el("dock").addEventListener("click", () => window.aman.dock());
+}
 
 timeToggle.addEventListener("click", () => {
   useLocal = !useLocal;
@@ -120,47 +117,44 @@ function render(r) {
     return;
   }
 
-  const anyAircraft = (r.gates || []).some((g) => g.sequence.length);
-  if (!anyAircraft) {
-    showEmpty("Aucun trafic assumé en approche pour l'instant sur cette porte/config.");
+  if (!r.sequence || !r.sequence.length) {
+    showEmpty("Aucun trafic IFR en approche pour l'instant sur cette piste.");
     return;
   }
 
-  r.gates.forEach((g) => {
-    if (!g.sequence.length) return;
+  const section = document.createElement("div");
+  section.className = "gate";
 
-    const section = document.createElement("div");
-    section.className = "gate";
+  const h = document.createElement("div");
+  h.className = "gate-title";
+  h.textContent = `Piste ${r.runwayConfig}`;
+  section.append(h);
 
-    const h = document.createElement("div");
-    h.className = "gate-title";
-    h.textContent = `Porte ${g.gate}`;
-    section.append(h);
+  const table = document.createElement("div");
+  table.className = "gate-table";
 
-    const table = document.createElement("div");
-    table.className = "gate-table";
+  const head = document.createElement("div");
+  head.className = "gate-row gate-head";
+  ["#", "Indicatif", "WTC", "Porte", "Point", "ETA", "STA", "TTL/TTG"].forEach((t) => head.append(cell(t)));
+  table.append(head);
 
-    const head = document.createElement("div");
-    head.className = "gate-row gate-head";
-    ["#", "Indicatif", "WTC", "ETO", "STA", "TTL/TTG"].forEach((t) => head.append(cell(t)));
-    table.append(head);
-
-    g.sequence.forEach((ac) => {
-      const row = document.createElement("div");
-      row.className = "gate-row";
-      row.dataset.status = ac.status;
-      row.append(
-        cell(ac.position),
-        cell(ac.callsign),
-        cell(ac.wake),
-        cell(formatTime(ac.eto)),
-        cell(formatTime(ac.sta)),
-        cell(formatTtl(ac.ttlSeconds))
-      );
-      table.append(row);
-    });
-
-    section.append(table);
-    result.append(section);
+  r.sequence.forEach((ac) => {
+    const row = document.createElement("div");
+    row.className = "gate-row";
+    row.dataset.status = ac.status;
+    row.append(
+      cell(ac.position),
+      cell(ac.callsign),
+      cell(ac.wake),
+      cell(ac.gate),
+      cell(ac.currentPoint),
+      cell(formatTime(ac.eta)),
+      cell(formatTime(ac.sta)),
+      cell(formatTtl(ac.ttlSeconds))
+    );
+    table.append(row);
   });
+
+  section.append(table);
+  result.append(section);
 }
