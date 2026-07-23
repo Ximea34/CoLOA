@@ -77,6 +77,24 @@ function fixesFromRoute(route) {
     .filter((t, i, a) => a.indexOf(t) === i);
 }
 
+// Fusionne le niveau d'une exception sur celui de la regle de base. Les 3
+// "modes" (coordination / fl / parity) sont exclusifs entre eux dans
+// resolveLevel() : si l'exception impose un mode different de celui de la
+// base, il doit le remplacer entierement plutot que s'y ajouter — sinon un
+// "coordination" herite de la base fait ignorer un "fl" pourtant plus precis
+// fixe par l'exception (resolveLevel verifie coordination avant fl).
+function mergeLevel(base, override) {
+  const merged = { ...base, ...override };
+  const modes = ["coordination", "fl", "parity"];
+  const overrideMode = modes.find((m) => override[m] !== undefined);
+  if (overrideMode) {
+    for (const m of modes) {
+      if (m !== overrideMode) delete merged[m];
+    }
+  }
+  return merged;
+}
+
 function resolveLevel(spec, rfl) {
   const out = { text: "", fl: null, warnings: [] };
   if (!spec) return { ...out, text: "Non defini — coordination requise" };
@@ -356,7 +374,7 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
   // (ex. un plafond qui vient s'ajouter a la parite), elle ne la remplace que
   // sur les champs qu'elle precise explicitement.
   const exception = (rule.exceptions || []).find((e) => whenMatches(e.when, fp));
-  const levelSpec = exception ? { ...rule.level, ...exception.level } : rule.level;
+  const levelSpec = exception ? mergeLevel(rule.level, exception.level) : rule.level;
   const level = resolveLevel(levelSpec, rfl);
 
   if (usedFallback) trace.push("Repli : aucun cop de cette regle trouve sur la route, clause generale appliquee");
