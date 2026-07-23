@@ -20,6 +20,8 @@ const { evaluate, fixesFromRoute, DB } = require("./loa-engine");
 const { computeSequence } = require("./aman-engine");
 const { loadAmanConfig } = require("./aman-config-loader");
 
+const APP_ICON = path.join(__dirname, "assets", "icon.png");
+
 const POLL_MS = 1500;       // detection du changement de selection
 const REFRESH_MS = 6000;    // rafraichissement de l'avion courant
 const ATC_MS = 30000;       // liste des ATC en ligne
@@ -116,6 +118,7 @@ function createDebugWindow() {
     width: 760, height: 500, minWidth: 420, minHeight: 240,
     parent: win || undefined,
     backgroundColor: "#16181b",
+    icon: APP_ICON,
     title: "Debug — Assistant LoA",
     webPreferences: {
       preload: path.join(__dirname, "debug-preload.js"),
@@ -160,6 +163,7 @@ function createManuelWindow(mode = "undocked") {
   const w = new BrowserWindow({
     width: 640, height: 560, minWidth: 480, minHeight: 400,
     backgroundColor: "#16181b",
+    icon: APP_ICON,
     title: "Consultation manuelle — Assistant LoA",
     webPreferences: {
       preload: path.join(__dirname, "manuel-preload.js"),
@@ -187,6 +191,7 @@ function createAmanWindow(mode = "undocked") {
   const w = new BrowserWindow({
     width: 900, height: 620, minWidth: 700, minHeight: 420,
     backgroundColor: "#16181b",
+    icon: APP_ICON,
     title: "AMAN — Assistant LoA",
     webPreferences: {
       preload: path.join(__dirname, "aman-preload.js"),
@@ -211,6 +216,7 @@ function createWindow(mode = "undocked") {
     width: 940, height: 580, minWidth: 660, minHeight: 320,
     frame: false,
     backgroundColor: "#16181b",
+    icon: APP_ICON,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -232,6 +238,7 @@ function createShellWindow() {
   shellWin = new BrowserWindow({
     width: 1100, height: 720, minWidth: 760, minHeight: 480,
     backgroundColor: "#16181b",
+    icon: APP_ICON,
     title: "Assistant LoA",
     webPreferences: {
       preload: path.join(__dirname, "shell-preload.js"),

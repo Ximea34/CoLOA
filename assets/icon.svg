@@ -1,0 +1,30 @@
+<svg width="100%" viewBox="0 0 210 210" role="img" xmlns="http://www.w3.org/2000/svg" style="">
+  <title>Logo app CoLOA — koala radar</title>
+  <desc>Icône d'application carrée : une tête de koala stylisée au centre d'un écran radar, avec cercles concentriques, balayage et échos.</desc>
+
+  <rect width="200" height="200" rx="45" fill="#0E2438"/>
+
+  <circle cx="100" cy="105" r="84" fill="none" stroke="#38BDF8" stroke-width="1.5" opacity="0.35"/>
+  <circle cx="100" cy="105" r="64" fill="none" stroke="#38BDF8" stroke-width="1.5" opacity="0.45"/>
+  <circle cx="100" cy="105" r="44" fill="none" stroke="#38BDF8" stroke-width="1.5" opacity="0.55"/>
+
+  <line x1="16" y1="105" x2="184" y2="105" stroke="#38BDF8" stroke-width="1" opacity="0.2"/>
+  <line x1="100" y1="21" x2="100" y2="189" stroke="#38BDF8" stroke-width="1" opacity="0.2"/>
+
+  <path d="M100 105 L100 21 A84 84 0 0 1 168.8 56.2 Z" fill="#38BDF8" opacity="0.28"/>
+  <line x1="100" y1="105" x2="168.8" y2="56.2" stroke="#7DD3FC" stroke-width="2.5" stroke-linecap="round"/>
+
+  <circle cx="146" cy="76" r="4" fill="#7DD3FC"/>
+  <circle cx="58" cy="148" r="3.5" fill="#7DD3FC" opacity="0.7"/>
+  <circle cx="150" cy="150" r="3" fill="#7DD3FC" opacity="0.5"/>
+
+  <circle cx="74" cy="80" r="15" fill="#F8FAFC"/>
+  <circle cx="74" cy="80" r="7" fill="#0E2438"/>
+  <circle cx="126" cy="80" r="15" fill="#F8FAFC"/>
+  <circle cx="126" cy="80" r="7" fill="#0E2438"/>
+
+  <circle cx="100" cy="105" r="29" fill="#F8FAFC"/>
+  <circle cx="90" cy="101" r="4" fill="#0E2438"/>
+  <circle cx="110" cy="101" r="4" fill="#0E2438"/>
+  <ellipse cx="100" cy="115" rx="6.5" ry="8" fill="#0E2438"/>
+</svg>
