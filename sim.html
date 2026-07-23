@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+<title>Simulateur — Assistant LoA</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="sim.css">
+</head>
+<body class="sim-body">
+
+<form class="sim-form" id="loadForm">
+  <label>Aéroport
+    <input type="text" id="airport" maxlength="4" placeholder="LFLL" autocomplete="off">
+  </label>
+  <label>Config piste
+    <select id="runwayConfig"><option value="">—</option></select>
+  </label>
+  <button type="submit" id="load">Charger</button>
+  <label>Vitesse du temps
+    <select id="timeScale">
+      <option value="1" selected>x1</option>
+      <option value="2">x2</option>
+      <option value="5">x5</option>
+      <option value="10">x10</option>
+      <option value="20">x20</option>
+    </select>
+  </label>
+  <span class="grow"></span>
+  <button id="dock" class="ghost" hidden>Rattacher</button>
+</form>
+
+<div class="sim-main">
+  <div class="sim-map-wrap">
+    <svg id="map" class="sim-map" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet"></svg>
+    <p class="empty" id="mapEmpty">Charge un aéroport pour afficher la carte, puis clique dessus pour placer un avion.</p>
+  </div>
+
+  <div class="sim-side">
+    <form class="sim-ac-form" id="acForm" hidden>
+      <h3 id="acFormTitle">Nouvel avion</h3>
+      <label>Indicatif <input type="text" id="acCallsign" maxlength="10" autocomplete="off"></label>
+      <label>Provenance <input type="text" id="acDep" maxlength="4" autocomplete="off"></label>
+      <label>Destination <input type="text" id="acArr" maxlength="4" autocomplete="off"></label>
+      <label>Sillage
+        <select id="acWake">
+          <option value="L">L</option>
+          <option value="M" selected>M</option>
+          <option value="H">H</option>
+          <option value="J">J</option>
+        </select>
+      </label>
+      <label>Porte <select id="acGate"></select></label>
+      <label>Cap (°) <input type="number" id="acTrack" min="0" max="359" step="1"></label>
+      <label>Vitesse (kt) <input type="number" id="acSpeed" min="0" max="600" step="1"></label>
+      <label>Altitude (ft) <input type="number" id="acAlt" min="0" max="45000" step="100"></label>
+      <div class="sim-ac-actions">
+        <button type="submit" id="acSave">Ajouter</button>
+        <button type="button" id="acDelete" class="ghost" hidden>Supprimer</button>
+        <button type="button" id="acCancel" class="ghost">Annuler</button>
+      </div>
+      <div class="sim-ac-nav" id="acNav" hidden>
+        <span class="sim-ac-nav-mode" id="acNavMode">manuel</span>
+        <button type="button" id="acFollow" class="ghost">Suivre la procédure</button>
+        <button type="button" id="acIls" class="ghost">Capturer l'ILS</button>
+      </div>
+    </form>
+
+    <div class="sim-list" id="list">
+      <p class="empty">Aucun avion simulé.</p>
+    </div>
+  </div>
+</div>
+
+<script src="sim-renderer.js"></script>
+</body>
+</html>

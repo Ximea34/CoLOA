@@ -17,8 +17,9 @@ const path = require("path");
 const { pathToFileURL } = require("url");
 const { AuroraClient } = require("./aurora-client");
 const { evaluate, fixesFromRoute, DB } = require("./loa-engine");
-const { computeSequence } = require("./aman-engine");
+const { computeSequence, gatesFor } = require("./aman-engine");
 const { loadAmanConfig } = require("./aman-config-loader");
+const { currentSimPos, navigateProcedure, captureIls } = require("./sim-engine");
 
 const APP_ICON = path.join(__dirname, "assets", "icon.png");
 
@@ -61,11 +62,49 @@ let trList = [];
 let trFetchedAt = 0;
 
 // Etat de progression AMAN par indicatif (jusqu'ou l'avion a avance sur sa
-// transition), memorise d'un rafraichissement a l'autre — necessaire car
-// "un point est franchi" est un evenement (l'avion peut deja etre ressorti
-// de sa petite zone de detection au rafraichissement suivant). Nettoye avec
-// le reste du cache quand l'indicatif quitte la liste #TR.
-const amanPointStates = new Map(); // indicatif -> { key, index }
+// transition/son guidage, et depuis quand il devie eventuellement), memorise
+// d'un rafraichissement a l'autre — necessaire car "un point est franchi"
+// est un evenement (l'avion peut deja etre ressorti de sa petite zone de
+// detection au rafraichissement suivant). Opaque ici : seul aman-engine.js
+// interprete la forme exacte. Nettoye avec le reste du cache quand
+// l'indicatif quitte la liste #TR.
+const amanPointStates = new Map(); // indicatif -> { key, index, mode, deviationSince }
+
+// Trafic simule pour tester l'AMAN sans trafic reel (place a la main sur la
+// carte du simulateur). Merge avec le trafic reel dans aman:compute — jamais
+// une seconde boucle, juste des entrees ajoutees au tableau "traffic" envoye
+// au moteur. La position est extrapolee a la demande (currentSimPos), pas
+// recalculee en continu : pas d'erreur d'arrondi qui s'accumule.
+// navMode "procedure" fait exception : un tick periodique (simTickTimer)
+// recalcule le cap vers le prochain point de la transition et fige la
+// position a chaque passage, pour que l'avion "tourne" aux points successifs
+// au lieu de foncer en ligne droite indefiniment.
+const simulatedTraffic = new Map(); // indicatif -> { dep, arr, wake, gate, runwayConfig, navMode, navIndex, lat, lon, track, groundSpeed, altitude, updatedAt }
+let simTimeScale = 1; // acceleration du temps ecoule pour l'extrapolation (x1 par defaut)
+const SIM_TICK_MS = 3000;
+let simTickTimer = null;
+
+function ensureSimTick() {
+  if (simTickTimer) return;
+  simTickTimer = setInterval(tickSimulatedProcedure, SIM_TICK_MS);
+}
+
+function tickSimulatedProcedure() {
+  const now = Date.now();
+  for (const [callsign, entry] of simulatedTraffic) {
+    if (entry.navMode !== "procedure") continue;
+    const pos = currentSimPos(entry, now, simTimeScale);
+    const { config } = loadAmanConfig(path.join(__dirname, "AMAN"), entry.arr);
+    if (!config) continue;
+    const nav = navigateProcedure(entry, config, pos);
+    if (!nav) continue;
+    simulatedTraffic.set(callsign, {
+      ...entry, lat: pos.lat, lon: pos.lon,
+      track: nav.track, groundSpeed: nav.groundSpeed, navIndex: nav.navIndex,
+      updatedAt: now,
+    });
+  }
+}
 
 // La boucle de cache tourne des qu'elle sert a quelque chose : le mode
 // balayage (affichage), ou l'AMAN interroge recemment (docke ou non — un
@@ -204,6 +243,34 @@ function createAmanWindow(mode = "undocked") {
   const wc = w.webContents;
   broadcastTargets.add(wc);
   w.on("closed", () => { broadcastTargets.delete(wc); if (amanWin === w) amanWin = null; });
+}
+
+// Simulateur de trafic : place des avions fictifs sur une carte pour tester
+// l'AMAN sans dependre du trafic reel. Aucune connexion Aurora requise.
+let simWin = null;
+
+function createSimWindow(mode = "undocked") {
+  if (simWin && !simWin.isDestroyed()) {
+    simWin.show();
+    simWin.focus();
+    return;
+  }
+  const w = new BrowserWindow({
+    width: 960, height: 680, minWidth: 720, minHeight: 480,
+    backgroundColor: "#16181b",
+    icon: APP_ICON,
+    title: "Simulateur — Assistant LoA",
+    webPreferences: {
+      preload: path.join(__dirname, "sim-preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  w.loadFile("sim.html", { query: { mode } });
+  simWin = w;
+  const wc = w.webContents;
+  broadcastTargets.add(wc);
+  w.on("closed", () => { broadcastTargets.delete(wc); if (simWin === w) simWin = null; });
 }
 
 function createWindow(mode = "undocked") {
@@ -600,6 +667,19 @@ ipcMain.handle("aman:compute", (_e, { airport, runwayConfig }) => {
     pos: entry.pos,
   }));
 
+  // Trafic simule (voir simulatedTraffic) : meme forme que le trafic reel,
+  // pour que le moteur ne fasse aucune distinction.
+  const simNow = Date.now();
+  for (const [callsign, entry] of simulatedTraffic) {
+    const { lat, lon } = currentSimPos(entry, simNow, simTimeScale);
+    traffic.push({
+      callsign,
+      fp: { arr: entry.arr, wake: entry.wake, rules: "I" },
+      path: [{ fix: entry.gate }],
+      pos: { lat, lon, track: entry.track, groundSpeed: entry.groundSpeed, onGround: false },
+    });
+  }
+
   // Diagnostic : pour chaque avion candidat par destination, on trace dans la
   // fenetre de debug pourquoi il entre ou non dans une porte — sans ca, une
   // exclusion (pas IFR, pas de position, pas de transition configuree...)
@@ -622,7 +702,99 @@ ipcMain.handle("aman:compute", (_e, { airport, runwayConfig }) => {
   for (const [callsign, state] of Object.entries(result.pointStates || {})) {
     amanPointStates.set(callsign, state);
   }
+
+  // Trace detaillee du calcul d'ETA (porte, index sur la transition, chaque
+  // tronçon avec sa distance/vitesse/duree) — pour observer en temps reel
+  // pourquoi un avion est positionne a telle heure sur la frise, notamment
+  // en cas de guidage radar (l'avion ne franchit alors pas les zones des
+  // points intermediaires, l'index reste bloque en arriere).
+  for (const ac of result.sequence || []) {
+    for (const line of ac.trace || []) {
+      debugPush("info", "aman", `${ac.callsign} : ${line}`);
+    }
+  }
+
   return result;
+});
+
+// --- simulateur de trafic -----------------------------------------------------
+// Fonctionne sans Aurora : sert a tester l'AMAN avec des avions places a la
+// main quand le trafic reel est trop rare.
+
+ipcMain.handle("sim:points", (_e, airport) => {
+  const icao = String(airport || "").toUpperCase();
+  const { config } = loadAmanConfig(path.join(__dirname, "AMAN"), icao);
+  return { points: config?.points || {}, transitions: config?.transitions || {} };
+});
+
+ipcMain.handle("aman:gates", (_e, { airport, runwayConfig }) => {
+  const icao = String(airport || "").toUpperCase();
+  return [...gatesFor(icao, runwayConfig).keys()];
+});
+
+ipcMain.handle("sim:add", (_e, ac) => {
+  simulatedTraffic.set(ac.callsign, {
+    dep: ac.dep, arr: ac.arr, wake: ac.wake, gate: ac.gate, runwayConfig: ac.runwayConfig,
+    navMode: "manual", navIndex: null,
+    lat: ac.lat, lon: ac.lon, track: ac.track, groundSpeed: ac.groundSpeed, altitude: ac.altitude,
+    updatedAt: Date.now(),
+  });
+  return { ok: true };
+});
+
+ipcMain.handle("sim:update", (_e, { callsign, patch }) => {
+  const entry = simulatedTraffic.get(callsign);
+  if (!entry) return { ok: false };
+  // Fige la position extrapolee au moment de l'edit avant d'appliquer les
+  // nouveaux cap/vitesse — sinon le prochain calcul repartirait de l'ancien
+  // point avec les nouvelles valeurs, faussant la trajectoire parcourue.
+  const now = Date.now();
+  const { lat, lon } = currentSimPos(entry, now, simTimeScale);
+  simulatedTraffic.set(callsign, { ...entry, lat, lon, ...patch, updatedAt: now });
+  return { ok: true };
+});
+
+ipcMain.handle("sim:remove", (_e, callsign) => {
+  simulatedTraffic.delete(callsign);
+  return { ok: true };
+});
+
+ipcMain.handle("sim:list", () => {
+  const now = Date.now();
+  return [...simulatedTraffic.entries()].map(([callsign, e]) => ({ ...e, callsign, ...currentSimPos(e, now, simTimeScale) }));
+});
+
+ipcMain.handle("sim:setTimeScale", (_e, scale) => {
+  simTimeScale = Number(scale) > 0 ? Number(scale) : 1;
+  return { ok: true, scale: simTimeScale };
+});
+
+// Suivre la procedure : fige la position actuelle, passe en navMode
+// "procedure" — le tick periodique (tickSimulatedProcedure) prend le relai
+// pour recalculer le cap a chaque passage.
+ipcMain.handle("sim:followProcedure", (_e, callsign) => {
+  const entry = simulatedTraffic.get(callsign);
+  if (!entry) return { ok: false };
+  const now = Date.now();
+  const pos = currentSimPos(entry, now, simTimeScale);
+  simulatedTraffic.set(callsign, { ...entry, lat: pos.lat, lon: pos.lon, navMode: "procedure", navIndex: null, updatedAt: now });
+  ensureSimTick();
+  return { ok: true };
+});
+
+// Capture l'ILS : projette la position actuelle sur l'axe final et fixe le
+// cap dessus, une bonne fois pour toutes (pas de suivi periodique requis
+// ensuite, l'avion vole droit sur l'axe comme en mode manuel).
+ipcMain.handle("sim:captureIls", (_e, callsign) => {
+  const entry = simulatedTraffic.get(callsign);
+  if (!entry) return { ok: false };
+  const now = Date.now();
+  const pos = currentSimPos(entry, now, simTimeScale);
+  const { config } = loadAmanConfig(path.join(__dirname, "AMAN"), entry.arr);
+  const captured = config && captureIls(entry, config, pos);
+  if (!captured) return { ok: false };
+  simulatedTraffic.set(callsign, { ...entry, ...captured, navMode: "ils", navIndex: null, updatedAt: now });
+  return { ok: true };
 });
 
 ipcMain.on("window", (_e, action) => {
@@ -643,15 +815,16 @@ ipcMain.on("debug:clear", () => { debugLog = []; });
 // Detacher/rattacher un module : la fenetre de base gere ses onglets cote
 // rendu (voir shell-renderer.js), main.js n'a qu'a ouvrir/fermer la vraie
 // fenetre et prevenir la fenetre de base quand il faut recreer l'onglet.
-const MODULE_FACTORIES = { loa: createWindow, aman: createAmanWindow, manuel: createManuelWindow };
+const MODULE_FACTORIES = { loa: createWindow, aman: createAmanWindow, manuel: createManuelWindow, sim: createSimWindow };
 function moduleWindowFor(id) {
-  return { loa: win, aman: amanWin, manuel: manuelWin }[id];
+  return { loa: win, aman: amanWin, manuel: manuelWin, sim: simWin }[id];
 }
 
 const MODULE_FILES = {
   loa: { src: "index.html", preload: "preload.js" },
   aman: { src: "aman.html", preload: "aman-preload.js" },
   manuel: { src: "manuel.html", preload: "manuel-preload.js" },
+  sim: { src: "sim.html", preload: "sim-preload.js" },
 };
 ipcMain.handle("module:info", (_e, id) => {
   const m = MODULE_FILES[id];

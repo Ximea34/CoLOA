@@ -223,6 +223,10 @@ function fillLane({ body, sequence, timeField, isFinal }, timeToY, bodyHeight) {
     const row = document.createElement("div");
     row.className = "ac-row";
     if (ac.status) row.dataset.status = ac.status;
+    if (ac.mode === "guidage") {
+      row.dataset.mode = "guidage";
+      row.title = "Guidage radar : hors transition publiee";
+    }
     row.style.top = `${labelY}px`;
 
     row.append(span("pos", ac.position), span("callsign", ac.callsign), span("wake", ac.wake));

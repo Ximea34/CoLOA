@@ -1,0 +1,165 @@
+/* sim.css — s'appuie sur les variables/classes de style.css. */
+
+.sim-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.sim-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.sim-form input, .sim-form select {
+  font: inherit;
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  width: 110px;
+  text-transform: uppercase;
+}
+.sim-form .grow { flex: 1; }
+#load {
+  font: inherit;
+  font-size: 12px;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+#load:hover { background: var(--accent); color: #0e1013; }
+
+.sim-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sim-map-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  background: var(--bg);
+}
+.sim-map { width: 100%; height: 100%; display: block; cursor: crosshair; }
+.sim-map-wrap .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px; }
+.sim-map-wrap .empty[hidden] { display: none; }
+
+.sim-side {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sim-ac-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sim-ac-form[hidden] { display: none; }
+.sim-ac-form h3 { font-size: 12px; color: var(--accent); font-weight: 500; }
+.sim-ac-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.sim-ac-form input, .sim-ac-form select {
+  font: inherit;
+  font-family: var(--font-data);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 7px;
+}
+.sim-ac-actions { display: flex; gap: 6px; margin-top: 4px; }
+.sim-ac-actions button {
+  flex: 1;
+  font: inherit;
+  font-size: 11.5px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#acSave { color: var(--accent); background: transparent; border: 1px solid var(--accent); }
+#acSave:hover { background: var(--accent); color: #0e1013; }
+
+.sim-ac-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.sim-ac-nav[hidden] { display: none; }
+.sim-ac-nav-mode {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-faint);
+}
+.sim-ac-nav button {
+  font: inherit;
+  font-size: 11.5px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sim-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+.sim-list .empty { padding: 20px 10px; font-size: 12px; }
+
+.sim-ac-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+}
+.sim-ac-row:hover { border-color: var(--accent); }
+.sim-ac-row .cs { color: var(--text); font-size: 13px; }
+.sim-ac-row .meta { color: var(--text-faint); }
+
+/* --- carte SVG -------------------------------------------------------------- */
+
+.sim-map .grid-line { stroke: var(--border-soft); stroke-width: 1; }
+.sim-map .ref-point circle { fill: var(--surface-2); stroke: var(--border); stroke-width: 1; }
+.sim-map .ref-point text { fill: var(--text-faint); font-size: 9px; font-family: var(--font-data); }
+.sim-map .ref-line { stroke: var(--accent-dim); stroke-width: 1; fill: none; }
+
+.sim-map .ac-marker { cursor: pointer; }
+.sim-map .ac-marker polygon { fill: var(--accent); stroke: var(--bg); stroke-width: 1; }
+.sim-map .ac-marker text { fill: var(--text); font-size: 10px; font-family: var(--font-data); }
+.sim-map .ac-marker.selected polygon { fill: var(--warn); }

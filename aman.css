@@ -198,3 +198,4 @@
 .ac-row[data-status="err"] { border-color: var(--err); }
 .ac-row[data-status="warn"] .time { color: var(--warn); }
 .ac-row[data-status="err"] .time { color: var(--err); }
+.ac-row[data-mode="guidage"] { border-style: dashed; }

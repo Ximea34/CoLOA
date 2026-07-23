@@ -8,7 +8,7 @@ const tabStrip = el("tabStrip");
 const content = el("content");
 const emptyContent = el("emptyContent");
 
-const LABELS = { loa: "Assistant LoA", aman: "AMAN", manuel: "Manuel" };
+const LABELS = { loa: "Assistant LoA", aman: "AMAN", manuel: "Manuel", sim: "Simulateur" };
 
 let connected = false;
 const openModules = new Map(); // id -> { webview, tab }
