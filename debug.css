@@ -1,0 +1,67 @@
+/* debug.css — s'appuie sur les variables de style.css (theme, couleurs). */
+
+.debug-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.debug-filters { display: flex; gap: 4px; }
+.debug-filters .filter {
+  font: inherit;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 3px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.debug-filters .filter:hover { color: var(--text); }
+.debug-filters .filter.active { border-color: var(--accent); color: var(--accent); }
+
+.autoscroll {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.debug-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 10px;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  line-height: 1.6;
+  user-select: text;
+}
+.debug-log::-webkit-scrollbar { width: 8px; }
+.debug-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.debug-log::-webkit-scrollbar-track { background: transparent; }
+
+.debug-empty { color: var(--text-faint); padding: 4px; font-family: var(--font-ui); }
+
+.entry {
+  display: flex;
+  gap: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 1px 0;
+}
+.entry[hidden] { display: none; }
+.entry .t { color: var(--text-faint); flex-shrink: 0; }
+.entry .tag { flex-shrink: 0; width: 48px; color: var(--text-dim); }
+.entry .text { color: var(--text); }
+
+.entry[data-dir="out"] .tag { color: var(--accent); }
+.entry[data-dir="err"] .tag,
+.entry[data-dir="err"] .text { color: var(--err); }
+.entry[data-dir="info"] .tag { color: var(--warn); }

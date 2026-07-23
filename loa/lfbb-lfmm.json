@@ -1,0 +1,498 @@
+{
+  "meta": {
+    "source": "LoA-LFBB-LFMM_EN v7.1 (22/04/2026)",
+    "scope": "Interface Bordeaux ACC (LFBB) <-> Marseille ACC (LFMM). Sections 2.2, 2.3, 3.1, 3.2.1 a 3.2.12.",
+    "notScoped": "Section 2.1 (classification d'espace) non encodee. LoA internes a chaque FIR non couvertes.",
+    "disclaimer": "FOR SIMULATION USE ONLY - NOT VALID FOR REAL OPERATIONS"
+  },
+
+  "stations": {
+    "LFBB_CTR":  { "freq": "130.230", "name": "Bordeaux Control",    "fallback": [] },
+    "LFBB_N_CTR":{ "freq": "134.255", "name": "Bordeaux North",      "fallback": ["LFBB_CTR"] },
+    "LFBB_S_CTR":{ "freq": "126.130", "name": "Bordeaux South",      "fallback": ["LFBB_CTR"] },
+    "LFBO_APP":  { "freq": "129.305", "name": "Toulouse Approach",   "fallback": ["LFBB_S_CTR", "LFBB_CTR"] },
+    "LFBL_APP":  { "freq": "118.080", "name": "Limoges Approach",    "fallback": ["LFBB_N_CTR", "LFBB_CTR"] },
+    "LFBD_APP":  { "freq": "129.875", "name": "Aquitaine Approach",  "fallback": ["LFBB_CTR"],
+                   "note": "Rattachement N/S non defini par la LoA (2.2.1) : fallback direct sur LFBB_CTR" },
+    "LFMM_CTR":  { "freq": "128.850", "name": "Marseille Control",   "fallback": [] },
+    "LFMM_W_CTR":{ "freq": "132.365", "name": "Marseille West",      "fallback": ["LFMM_CTR"] },
+    "LFLC_APP":  { "freq": "122.225", "name": "Clermont Approach",   "fallback": ["LFMM_W_CTR", "LFMM_CTR"] },
+    "LFMT_APP":  { "freq": "131.055", "name": "Montpellier Approach","fallback": ["LFMM_W_CTR", "LFMM_CTR"] }
+  },
+
+  "groups": {
+    "LSGG_TMA": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"],
+    "LSAG_CTA": ["LSGC", "LSGS", "LSGK", "LSMP"],
+    "BARCELONA_GROUP": ["LEBL", "LEDA", "LEGE", "LERS", "LELL"]
+  },
+
+  "defaults": {
+    "accToApp": {
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Arrivees LFBB ACC -> Clermont APP transferees a FL150 en descente (3.2.3)"
+    },
+    "appToAcc": {
+      "level": { "fl": 140, "trend": "climbing" },
+      "note": "Departs Clermont APP -> LFBB ACC transferes a FL140 en montee (3.2.4)"
+    },
+    "general": [
+      "En dessous du FL195 la limite entre Bordeaux ACC et Marseille ACC est la limite FIR (2.2.1 / 2.2.5).",
+      "Le trafic est repute maintenir le niveau coordonne au COP sauf condition de montee/descente explicite (3.1).",
+      "Toute deviation (COP, route, FL) impose une approval request de l'organisme transferant (3.1).",
+      "Si l'organisme accepteur ne peut pas accepter le vol aux conditions de la LoA, il indique les conditions sous lesquelles il l'accepte (3.1).",
+      "Les trafics sont transferes des que possible, degages de tout conflit (3.1).",
+      "Silent handover possible a 10 NM, obligatoire si separation longitudinale < 20 NM ; vitesses/Mach assignes aux deux avions, le n1 >= le n2, report de la vitesse assignee au premier contact (3.1)."
+    ]
+  },
+
+  "rules": [
+
+    { "id": "bbn-labal", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["LABAL"],
+      "when": { "arr": ["LFLL", "LFLY", "LFLS"] },
+      "level": { "fl": 200, "at": "LABAL" } },
+
+    { "id": "bbn-tis", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["TIS"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LIM*", "LSZ*"], "arrExcept": ["LIMJ"] }, "level": { "fl": 370 } },
+        { "when": { "arr": ["LSGC", "LSGS", "LSGK", "LSMP", "LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] },
+          "level": { "fl": 290 }, "note": "LSAG CTA + LSGG TMA (3.2.1.1)" },
+        { "when": { "arr": ["LFLB", "LFLP"] }, "level": { "fl": 250, "release": { "fl": 200 } },
+          "note": "FL250 released FL200" },
+        { "when": { "arr": ["LFMH", "LFLU"] }, "level": { "fl": 200 } }
+      ] },
+
+    { "id": "bbn-lerga-noqas", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["LERGA-NOQAS"],
+      "level": { "parity": "odd" },
+      "note": "Bordeaux ACC responsable de la compatibilite sur NOQAS-OTROT (3.2.1.4). COP modifie en v7.1." },
+
+    { "id": "bbn-lerga-otrot", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["LERGA-OTROT"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LFML", "LFMQ"] }, "level": { "fl": 330 },
+          "note": "Uniquement si LFML en QFU 31 (3.2.1.3)" }
+      ],
+      "note": "Bordeaux ACC responsable de la compatibilite sur TOZOT-OTROT (3.2.1.4). COP modifie en v7.1." },
+
+    { "id": "bbn-lerga-latam", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["LERGA-LATAM"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LFMA"] }, "level": { "fl": 330 } },
+        { "when": { "arr": ["LFML", "LFMQ", "LFMY"] }, "level": { "fl": 290 },
+          "note": "LFML/LFMQ uniquement si LFML en QFU 13 (3.2.1.3)" },
+        { "when": { "arr": ["LFMV", "LFMO"] }, "level": { "fl": 230 } }
+      ] },
+
+    { "id": "bbn-minpa", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["MINPA"], "level": { "parity": "even", "maxFl": 190 } },
+    { "id": "bbn-gerva", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["GERVA"], "level": { "parity": "odd", "maxFl": 190 } },
+    { "id": "bbn-somti", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["SOMTI"], "level": { "parity": "even", "maxFl": 190 } },
+    { "id": "bbn-eneso", "ref": "3.2.1", "from": "LFBB_N", "to": "LFMM_W_CTR",
+      "cop": ["ENESO"], "level": { "parity": "odd", "maxFl": 190 } },
+
+    { "id": "bbs-ninun", "ref": "3.2.1", "from": "LFBB_S", "to": "LFMM_W_CTR",
+      "cop": ["NINUN"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LSZ*", "LSM*", "LFSB", "LFGA"], "arrExcept": ["LSZH", "LSZR", "LSMP", "LSMD"] },
+          "level": { "fl": 380 } },
+        { "when": { "dep": ["LFBO"] }, "level": { "fl": 340 } },
+        { "when": { "arr": ["LSGC", "LSGK", "LSGS", "LSMP"] }, "level": { "fl": 340 } },
+        { "when": { "arr": ["LFGJ", "LFSD"] }, "level": { "fl": 320 } },
+        { "when": { "arr": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] }, "level": { "fl": 300 },
+          "note": "LSGG TMA (3.2.1.1)" },
+        { "when": { "arr": ["LFLL", "LFLY", "LFLS", "LFLU", "LFLB", "LFLP", "LFLJ", "LFHV"] },
+          "level": { "fl": 260 } },
+        { "when": { "arr": ["LFMH"] }, "level": { "fl": 200 } }
+      ] },
+
+    { "id": "bbs-men", "ref": "3.2.1", "from": "LFBB_S", "to": "LFMM_W_CTR",
+      "cop": ["MEN"],
+      "level": { "parity": "odd", "maxFl": 190 },
+      "exceptions": [
+        { "when": { "arr": ["LFMT"] }, "level": { "fl": 200, "at": "MEN" },
+          "note": "Niveau par MEN en cas d'activite TRA42. STAR MEN nT si LF-R169B inactive, MEN nE si active (3.2.1.2)" }
+      ] },
+
+    { "id": "bbs-afric", "ref": "3.2.1", "from": "LFBB_S", "to": "LFMM_W_CTR",
+      "cop": ["AFRIC"],
+      "level": { "parity": "odd", "maxFl": 190 },
+      "exceptions": [
+        { "when": { "arr": ["LFMT", "LFMU"] }, "level": { "fl": 200 } }
+      ] },
+
+    { "id": "bbs-nekta", "ref": "3.2.1", "from": "LFBB_S", "to": "LFMM_W_CTR",
+      "cop": ["NEKTA"],
+      "when": { "arr": ["LFMP", "LEGE"] },
+      "level": { "fl": 200 } },
+
+    { "id": "bbs-fjr", "ref": "3.2.1", "from": "LFBB_S", "to": "LFMM_W_CTR",
+      "cop": ["FJR"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFBO", "LFBF", "LFBR"] }, "level": { "fl": 350 } },
+        { "when": { "arr": ["LFMN", "LFMC", "LFMD", "LFTZ"] }, "level": { "fl": 350 } },
+        { "when": { "arr": ["LFTH", "LFTF"] }, "level": { "fl": 330 } },
+        { "when": { "arr": ["LFML", "LFMA", "LFMQ", "LFMY", "LFMI", "LFTW", "LFMV", "LFMO"] },
+          "level": { "fl": 200 } }
+      ] },
+
+    { "id": "bbs-ppg", "ref": "3.2.1", "from": "LFBB_S", "to": "LFMM_W_CTR",
+      "cop": ["PPG"],
+      "when": { "arr": ["LEGE"] },
+      "level": { "fl": 200 },
+      "note": "En cas d'activite TRA40, les departs LFBO via PPG sont coordonnes a Marseille et maintiennent FL190 sous la zone (2.3.2)" },
+
+    { "id": "bbs-orbil", "ref": "3.2.1", "from": "LFBB_S", "to": "LFMM_W_CTR",
+      "cop": ["ORBIL"], "level": { "parity": "even", "maxFl": 190 } },
+
+    { "id": "mmw-tis", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_N_CTR",
+      "cop": ["TIS"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFBL", "LFBU", "LFLX"] }, "level": { "fl": 340 } },
+        { "when": { "dep": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN", "LFLP", "LFLB"] }, "level": { "fl": 300 },
+          "note": "LSGG TMA + LFLP/LFLB (3.2.2.1)" },
+        { "when": { "dep": ["LFLL", "LFLY", "LFLS"] }, "level": { "fl": 240 },
+          "note": "Releases pour montee FL280 dans la release box (2.3.1 / 3.2.2.3)" },
+        { "when": { "dep": ["LFLU"], "rflAbove": 195 }, "level": { "fl": 190 } }
+      ] },
+
+    { "id": "mmw-repsi", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_N_CTR",
+      "cop": ["REPSI"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFLB", "LFLP"] }, "level": { "fl": 310 } },
+        { "when": { "arr": ["LFCR"] }, "level": { "fl": 270 } },
+        { "when": { "dep": ["LFLL", "LFLY", "LFLS"] }, "level": { "fl": 240 } },
+        { "when": { "dep": ["LFMH"] }, "level": { "fl": 190 } }
+      ],
+      "note": "Marseille ACC responsable de la compatibilite sur REPSI-LERGA (3.2.2.4)" },
+
+    { "id": "mmw-esida", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_N_CTR",
+      "cop": ["ESIDA"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFGJ"] }, "level": { "fl": 330 } },
+        { "when": { "dep": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] }, "level": { "fl": 310 },
+          "note": "LSGG TMA (3.2.2.1)" }
+      ],
+      "note": "Marseille ACC responsable de la compatibilite sur ESIDA-LERGA (3.2.2.4)" },
+
+    { "id": "mmw-noqas", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_N_CTR",
+      "cop": ["NOQAS"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFBL", "LFBU", "LFLX"] }, "level": { "fl": 340 } },
+        { "when": { "dep": ["LFMA"] }, "level": { "fl": 320 } },
+        { "when": { "dep": ["LFMY"] }, "level": { "fl": 300 } },
+        { "when": { "dep": ["LFMV", "LFMO"] }, "level": { "fl": 260 } },
+        { "when": { "dep": ["LFLU"], "rflAbove": 195 }, "level": { "fl": 190 } }
+      ],
+      "note": "Marseille ACC responsable de la compatibilite sur NOQAS-LERGA (3.2.2.5)" },
+
+    { "id": "mmw-tozot", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_N_CTR",
+      "cop": ["TOZOT"],
+      "when": { "dep": ["LFML", "LFMQ"] },
+      "level": { "fl": 320 },
+      "note": "Uniquement si LFML en QFU 13. Compatibilite TOZOT-LERGA a charge de Marseille (3.2.2.5)" },
+
+    { "id": "mmw-liqid", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_N_CTR",
+      "cop": ["LIQID"],
+      "when": { "dep": ["LFML", "LFMQ"] },
+      "level": { "fl": 320 },
+      "note": "Uniquement si LFML en QFU 31. Compatibilite LIQID-LERGA a charge de Marseille (3.2.2.5)" },
+
+    { "id": "mmw-minpa", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_N_CTR",
+      "cop": ["MINPA"],
+      "when": { "dep": ["LFLC"] },
+      "level": { "fl": 190 },
+      "note": "Applicable avec LF-R68 active ; departs LFLC transferes par Clermont APP a Marseille puis Bordeaux (2.3.4 / 3.2.4.4)" },
+
+    { "id": "mmw-peqef", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_S_CTR",
+      "cop": ["PEQEF"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN", "LSGC", "LSGS", "LSGK", "LSMP"] },
+          "level": { "fl": 330 }, "note": "LSGG TMA + LSAG CTA (3.2.2.1)" },
+        { "when": { "dep": ["LFLL", "LFLY", "LFLU", "LFLS", "LFLB", "LFLP"] }, "level": { "fl": 290 } }
+      ],
+      "note": "Reserve aux ARR Barcelona Group (LEBL LEDA LEGE LERS LELL) et LFMP. Disponible uniquement week-ends, nuits et jours feries (activite TRA42) - 3.2.2.2. Indisponible si TRA41 et/ou TRA46 actives (2.3.2)." },
+
+    { "id": "mmw-fjr", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_S_CTR",
+      "cop": ["FJR"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFBO", "LFBF", "LFBR"] }, "level": { "fl": 340 } },
+        { "when": { "dep": ["LFML", "LFMQ", "LFMY", "LFMA"] }, "level": { "fl": 280 } }
+      ] },
+
+    { "id": "mmw-brusc", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_S_CTR",
+      "cop": ["BRUSC"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LFMT", "LFMI", "LFTW", "LFMV", "LFMO"] }, "level": { "fl": 190 } },
+        { "when": { "dep": ["LFMU"] }, "level": { "fl": 180 } }
+      ] },
+
+    { "id": "mmw-orbil", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_S_CTR",
+      "cop": ["ORBIL"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LFMP"] }, "level": { "fl": 180 } }
+      ] },
+
+    { "id": "mmw-kelam", "ref": "3.2.2", "from": "LFMM_W", "to": "LFBB_S_CTR",
+      "cop": ["KELAM"],
+      "when": { "dep": ["LFMT"] },
+      "level": { "fl": 190 } },
+
+    { "id": "bb-lflc-esisi", "ref": "3.2.3", "from": "LFBB", "to": "LFLC_APP",
+      "when": { "arr": ["LFCR"] }, "cop": ["ESISI"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Clermont APP informe LFBB ACC de la piste en service a LFCR. Les arrivees LFCR via BASLI, MINPA et MEN doivent eviter l'espace de Bordeaux ACC ; via GAI coordination Toulouse APP <-> Clermont APP (3.2.3.2)" },
+    { "id": "bb-lflc-romak", "ref": "3.2.3", "from": "LFBB", "to": "LFLC_APP",
+      "when": { "arr": ["LFCR", "LFLW"] }, "cop": ["ROMAK"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "bb-lflc-arr", "ref": "3.2.3", "from": "LFBB", "to": "LFLC_APP",
+      "when": { "arr": ["LFLC"] }, "cop": ["GERVA", "SOMTI", "MINPA"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "LF-R68 A/B/C/D inactives : transfert en route vers GERVA ou SOMTI, FL140 max attendu a GERVA/SOMTI. Une zone active : transfert via RISUN (coordination Limoges <-> Clermont) ou MINPA (transfert direct Bordeaux ACC -> Clermont APP) - 3.2.3.4 / 2.3.4" },
+    { "id": "bb-lflc-xupal", "ref": "3.2.3", "from": "LFBB", "to": "LFLC_APP",
+      "when": { "arr": ["LFLW"] }, "cop": ["XUPAL"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Arrivees LFLW via GAI coordonnees Toulouse <-> Clermont, via XERAK coordonnees Limoges <-> Clermont (3.2.3.5)" },
+    { "id": "bb-lflc-lavra", "ref": "3.2.3", "from": "LFBB", "to": "LFLC_APP",
+      "when": { "arr": ["LFLW", "LFSL"] }, "cop": ["LAVRA"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Arrivees LFCC via LAVRA coordonnees Limoges APP <-> Clermont APP ; via AULON, NARAK et LACOU coordonnees Toulouse APP <-> Clermont APP (3.2.3.1)" },
+    { "id": "bb-lflc-xerak", "ref": "3.2.3", "from": "LFBB", "to": "LFLC_APP",
+      "when": { "arr": ["LFSL"] }, "cop": ["XERAK"],
+      "level": { "fl": 150, "trend": "descending" } },
+
+    { "id": "lflc-bb-esisi", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFBB",
+      "when": { "dep": ["LFCR"] }, "cop": ["ESISI", "MINPA"],
+      "level": { "fl": 140, "trend": "climbing" },
+      "note": "Departs LFCR via GAI coordonnes Clermont <-> Limoges ; via BASLI et MEN doivent eviter l'espace de Bordeaux ACC (3.2.4.2)" },
+    { "id": "lflc-bb-romak", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFBB",
+      "when": { "dep": ["LFCR", "LFLW"] }, "cop": ["ROMAK"],
+      "level": { "fl": 140, "trend": "climbing" } },
+    { "id": "lflc-bb-dep", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFBB",
+      "when": { "dep": ["LFLC"] }, "cop": ["GERVA", "SOMTI"],
+      "level": { "fl": 140, "trend": "climbing" },
+      "note": "LF-R68 A/B/C/D inactives : transfert en route vers GERVA ou SOMTI. Une zone active : via RISUN (coordination Clermont <-> Limoges) ou via MINPA, alors transfere d'abord a LFMM_W_CTR (3.2.4.4)" },
+    { "id": "lflc-bb-lavra", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFBB",
+      "when": { "dep": ["LFLW", "LFSL"] }, "cop": ["LAVRA"],
+      "level": { "fl": 140, "trend": "climbing" },
+      "note": "Departs LFCC coordonnes Clermont <-> Limoges via PERIG et LAVRA, Clermont <-> Toulouse via AULON, NARAK, GAI, AGN et LACOU (3.2.4.1)" },
+    { "id": "lflc-bb-xupal", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFBB",
+      "when": { "dep": ["LFLW"] }, "cop": ["XUPAL"],
+      "level": { "fl": 140, "trend": "climbing" },
+      "note": "Departs LFLW via ESISI coordonnes Clermont <-> Limoges ; via MEN doivent eviter l'espace de Bordeaux ACC (3.2.4.5)" },
+    { "id": "lflc-bb-men", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFBB",
+      "when": { "dep": ["LFCI"] }, "cop": ["MEN"],
+      "level": { "fl": 140, "trend": "climbing" } },
+    { "id": "lflc-bb-xerak", "ref": "3.2.4", "from": "LFLC_APP", "to": "LFBB",
+      "when": { "dep": ["LFSL"] }, "cop": ["XERAK"],
+      "level": { "fl": 140, "trend": "climbing" } },
+
+    { "id": "lfbd-lflc-ibder", "ref": "3.2.5", "from": "LFBD_APP", "to": "LFLC_APP",
+      "route": "V14 OBLOC-IBDER-LAVRA", "cop": ["IBDER"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lflc-lfbd-ibder", "ref": "3.2.6", "from": "LFLC_APP", "to": "LFBD_APP",
+      "route": "V14 LAVRA-IBDER-OBLOC", "cop": ["IBDER"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+
+    { "id": "lfbo-lflc-aulon", "ref": "3.2.7", "from": "LFBO_APP", "to": "LFLC_APP",
+      "route": "G36 GAI-AULON-LAVRA", "cop": ["AULON"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+    { "id": "lfbo-lflc-bibdo", "ref": "3.2.7", "from": "LFBO_APP", "to": "LFLC_APP",
+      "route": "V12 GAI-GILUR", "cop": ["BIBDO"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+    { "id": "lfbo-lflc-tobvo", "ref": "3.2.7", "from": "LFBO_APP", "to": "LFLC_APP",
+      "route": "V21 GAI-TAKAT", "cop": ["TOBVO"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+    { "id": "lfbo-lflc-depes", "ref": "3.2.7", "from": "LFBO_APP", "to": "LFLC_APP",
+      "route": "T544 GAI-DEPES-ESPAL", "cop": ["DEPES"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+    { "id": "lfbo-lflc-lfcr", "ref": "3.2.7", "from": "LFBO_APP", "to": "LFLC_APP",
+      "when": { "arr": ["LFCR"] }, "cop": ["GAI", "ROMAK"], "level": { "coordination": true } },
+    { "id": "lfbo-lflc-lfci", "ref": "3.2.7", "from": "LFBO_APP", "to": "LFLC_APP",
+      "when": { "dep": ["LFCI", "LFCK"], "rflBelow": 145 }, "cop": ["MEN"], "level": { "coordination": true } },
+    { "id": "lfbo-lflc-lfcc", "ref": "3.2.7", "from": "LFBO_APP", "to": "LFLC_APP",
+      "when": { "arr": ["LFCC"] }, "cop": ["AULON", "NARAK", "LACOU"], "level": { "coordination": true } },
+
+    { "id": "lflc-lfbo-aulon", "ref": "3.2.8", "from": "LFLC_APP", "to": "LFBO_APP",
+      "route": "G36 LAVRA-AULON-GAI", "cop": ["AULON"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lflc-lfbo-bibdo", "ref": "3.2.8", "from": "LFLC_APP", "to": "LFBO_APP",
+      "route": "V12 GILUR-GAI", "cop": ["BIBDO"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lflc-lfbo-tobvo", "ref": "3.2.8", "from": "LFLC_APP", "to": "LFBO_APP",
+      "route": "V21 TAKAT-GAI", "cop": ["TOBVO"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lflc-lfbo-depes", "ref": "3.2.8", "from": "LFLC_APP", "to": "LFBO_APP",
+      "route": "T544 ESPAL-DEPES-GAI", "cop": ["DEPES"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lflc-lfbo-lfcr", "ref": "3.2.8", "from": "LFLC_APP", "to": "LFBO_APP",
+      "when": { "dep": ["LFCR"] }, "cop": ["GAI"], "level": { "coordination": true } },
+    { "id": "lflc-lfbo-narak", "ref": "3.2.8", "from": "LFLC_APP", "to": "LFBO_APP",
+      "when": { "arr": ["LFBO"], "rflBelow": 145 }, "cop": ["NARAK"], "level": { "coordination": true } },
+    { "id": "lflc-lfbo-lfci", "ref": "3.2.8", "from": "LFLC_APP", "to": "LFBO_APP",
+      "when": { "arr": ["LFCI", "LFCK"], "rflBelow": 145 }, "cop": ["MEN"], "level": { "coordination": true } },
+    { "id": "lflc-lfbo-lfcc", "ref": "3.2.8", "from": "LFLC_APP", "to": "LFBO_APP",
+      "when": { "dep": ["LFCC"] }, "cop": ["FIRST_FPL_POINT_TOULOUSE_SIV"], "level": { "coordination": true },
+      "note": "COP = premier point FPL dans le SIV Toulouse" },
+
+    { "id": "lfbl-lflc-g21", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "route": "G21 RISUN-LEMIN", "cop": ["RISUN"],
+      "when": { "rflBelow": 115 }, "level": { "parity": "even" } },
+    { "id": "lfbl-lflc-v18", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "route": "V18 RISUN-ENESO", "cop": ["RISUN"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lfbl-lflc-v13", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "route": "V13 LARON-GERVA", "cop": ["BEPMI"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" },
+      "note": "Route indisponible si LF-R68 A, B, C ou D active (3.2.9.1)" },
+    { "id": "lfbl-lflc-v15", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "route": "V15 LMG-GERVA", "cop": ["EVBIS"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" },
+      "note": "Route indisponible si LF-R68 A, B, C ou D active (3.2.9.1)" },
+    { "id": "lfbl-lflc-r66", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "route": "R66 RISUN-RIVEK", "cop": ["RISUN"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lfbl-lflc-t19", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "route": "T19 OBLOC-SOMTI", "cop": ["RUBGI"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" },
+      "note": "Route indisponible si LF-R68 A, B, C ou D active (3.2.9.1)" },
+    { "id": "lfbl-lflc-t616", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "route": "T616 ESISI-XUPAL", "cop": ["XERAK"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" },
+      "note": "Route indisponible si LF-R68 A, B, C ou D active (3.2.9.1)" },
+    { "id": "lfbl-lflc-g36", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "route": "G36 ESISI-LAVRA", "cop": ["RATRA"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lfbl-lflc-risun-coord", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "when": { "arr": ["LFLC", "LFHY", "LFLN", "LFLO", "LFLV"] }, "cop": ["RISUN"],
+      "level": { "coordination": true },
+      "note": "LFLC uniquement si LF-R68 active (3.2.3.3 / 3.2.3.4)" },
+    { "id": "lfbl-lflc-xerak-coord", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "when": { "dep": ["LFSL"], "arr": ["LFLW"] }, "cop": ["XERAK"], "level": { "coordination": true } },
+    { "id": "lfbl-lflc-ratra-coord", "ref": "3.2.9", "from": "LFBL_APP", "to": "LFLC_APP",
+      "when": { "dep": ["LFSL"], "arr": ["LFCC"] }, "cop": ["RATRA"], "level": { "coordination": true } },
+
+    { "id": "lflc-lfbl-g21", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "route": "G21 LEMIN-RISUN", "cop": ["LEMIN"],
+      "when": { "rflBelow": 115 }, "level": { "parity": "odd" } },
+    { "id": "lflc-lfbl-v18", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "route": "V18 ENESO-RISUN", "cop": ["ENESO"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+    { "id": "lflc-lfbl-v13", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "route": "V13 GERVA-LARON", "cop": ["BEPMI"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" },
+      "note": "Route indisponible si LF-R68 A, B, C ou D active (3.2.10.1)" },
+    { "id": "lflc-lfbl-v15", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "route": "V15 GERVA-LMG", "cop": ["EVBIS"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" },
+      "note": "Route indisponible si LF-R68 A, B, C ou D active (3.2.10.1)" },
+    { "id": "lflc-lfbl-r66", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "route": "R66 RIVEK-RISUN", "cop": ["RIVEK"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+    { "id": "lflc-lfbl-t19", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "route": "T19 SOMTI-OBLOC", "cop": ["RUBGI"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" },
+      "note": "Route indisponible si LF-R68 A, B, C ou D active (3.2.10.1)" },
+    { "id": "lflc-lfbl-t616", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "route": "T616 XUPAL-ESISI", "cop": ["XERAK"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" },
+      "note": "Route indisponible si LF-R68 A, B, C ou D active (3.2.10.1)" },
+    { "id": "lflc-lfbl-g36", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "route": "G36 LAVRA-ESISI", "cop": ["RATRA"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+    { "id": "lflc-lfbl-risun-coord", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "when": { "dep": ["LFLC", "LFHY", "LFLN", "LFLO", "LFLV"] }, "cop": ["RISUN"],
+      "level": { "coordination": true },
+      "note": "LFLC uniquement si LF-R68 active (3.2.4.3 / 3.2.4.4)" },
+    { "id": "lflc-lfbl-xerak-coord", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "when": { "arr": ["LFSL"], "dep": ["LFLW"] }, "cop": ["XERAK"], "level": { "coordination": true } },
+    { "id": "lflc-lfbl-ratra-coord", "ref": "3.2.10", "from": "LFLC_APP", "to": "LFBL_APP",
+      "when": { "arr": ["LFSL"], "dep": ["LFCC"] }, "cop": ["RATRA"], "level": { "coordination": true } },
+
+    { "id": "lfbo-lfmt-afric", "ref": "3.2.11", "from": "LFBO_APP", "to": "LFMT_APP",
+      "route": "G39 GAI-AFRIC-FJR / G393 TOU-AFRIC-FJR", "cop": ["AFRIC"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFCI", "LFCK"] }, "level": { "coordination": true, "maxFl": 140 },
+          "note": "Transfert a FL140 maximum pour eviter l'espace de Bordeaux ACC (3.2.11.1)" }
+      ],
+      "note": "Departs LFMK via FJR ou PPG coordonnes a Montpellier APP au plus tard avant decollage (3.2.11.2)" },
+    { "id": "lfbo-lfmt-orbil", "ref": "3.2.11", "from": "LFBO_APP", "to": "LFMT_APP",
+      "route": "G36 GAI-ORBIL-PPG", "cop": ["ORBIL"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+    { "id": "lfbo-lfmt-moril", "ref": "3.2.11", "from": "LFBO_APP", "to": "LFMT_APP",
+      "route": "R17 TOU-MORIL-PPG", "cop": ["MORIL"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "odd" } },
+
+    { "id": "lfmt-lfbo-afric", "ref": "3.2.12", "from": "LFMT_APP", "to": "LFBO_APP",
+      "route": "G39 AFRIC-GAI", "cop": ["AFRIC"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFCI", "LFCK"] }, "level": { "coordination": true, "maxFl": 140 },
+          "note": "Transfert a FL140 ou moins pour eviter l'espace de Bordeaux ACC (3.2.12.1)" }
+      ],
+      "note": "Arrivees LFMK via FJR et ORBIL transferees a un niveau coordonne avec Toulouse APP (3.2.12.2)" },
+    { "id": "lfmt-lfbo-orbil", "ref": "3.2.12", "from": "LFMT_APP", "to": "LFBO_APP",
+      "route": "G36 PPG-ORBIL-GAI", "cop": ["ORBIL"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } },
+    { "id": "lfmt-lfbo-moril", "ref": "3.2.12", "from": "LFMT_APP", "to": "LFBO_APP",
+      "route": "R17 PPG-MORIL-TOU", "cop": ["MORIL"],
+      "when": { "rflBelow": 145 }, "level": { "parity": "even" } }
+  ],
+
+  "specialAreas": [
+    { "id": "release-box-lfbb", "ref": "2.3.1", "name": "Release box deleguee a Bordeaux ACC",
+      "delegatedTo": "LFBB_CTR", "vertical": { "from": 245, "to": 285 },
+      "coordinates": [
+        "455844N 0033521E", "455305N 0041838E", "454122N 0041346E", "454640N 0034008E"
+      ],
+      "note": "Delegation permanente pour poursuivre la montee des departs de la region lyonnaise (cf. 3.2.2.3 : DEP LFLL/LFLY/LFLS via TIS releases FL280 dans la box)" },
+
+    { "id": "tra40-41-42-46", "ref": "2.3.2", "name": "TRA40 TRA41 TRA42 TRA46",
+      "informTo": ["LFBB_CTR", "LFMM_CTR"],
+      "conditions": [
+        { "area": "TRA40", "effect": "Directs via YACIM indisponibles. Departs LFBO via PPG coordonnes a Marseille, maintien FL190 sous la zone active." },
+        { "area": "TRA42N/NT", "effect": "Arrivees LFMI et LFTW transferees FL200 niveau par MEN sur MEN-ESERA. Arrivees LFMT transferees FL200 niveau par MEN sur MEN-LEKLA ou MEN-ESERA selon R169B." },
+        { "area": "TRA42S", "effect": "Arrivees LFMI et LFTW transferees FL200 niveau par MEN." },
+        { "area": "TRA41 / TRA46", "effect": "Routes via PEQEF et YACIM indisponibles." }
+      ] },
+
+    { "id": "r108", "ref": "2.3.3", "name": "R108",
+      "informTo": ["LFBB_CTR", "LFMM_CTR"],
+      "conditions": [
+        { "area": "R108", "effect": "Zone active : seuls les vols dont le plan de vol traverse la zone y penetrent sans coordination prealable. Si un ACC clear un vol non planifie dans la zone, il coordonne avec l'entite militaire et informe l'autre ACC de la coordination effectuee." }
+      ] },
+
+    { "id": "r68-r368", "ref": "2.3.4", "name": "R68 R368",
+      "informTo": ["LFBB_CTR", "LFMM_CTR", "LFBL_APP", "LFLC_APP"],
+      "conditions": [
+        { "area": "R68 / R368", "effect": "Zones actives : reroutage tactique via LAVRA-TAKAT-MINPA au sud ou ENESO-RISUN-LMG au nord." },
+        { "area": "R368-E", "effect": "Vol coordonne a un FL disponible selon l'activite." },
+        { "area": "LFLC via GERVA", "effect": "Arrivees/departs reroutes via RISUN, coordination Limoges APP <-> Clermont APP." },
+        { "area": "LFLC via SOMTI", "effect": "Arrivees/departs reroutes via MINPA. Arrivees via MINPA transferees directement de Bordeaux ACC a Clermont APP. Departs via MINPA transferes de Clermont APP a Marseille ACC puis a Bordeaux ACC." }
+      ] }
+  ],
+
+  "changelog": [
+    { "version": "v7.0", "date": "19/03/2026",
+      "changes": ["Nouveau format", "Conditions d'echange", "Espace LFMM ACC", "Espace LFBB ACC"] },
+    { "version": "v7.1", "date": "22/04/2026",
+      "changes": ["Modification des COP pour le trafic LFBB ACC -> LFMM ACC via LERGA"] }
+  ]
+}

@@ -1,0 +1,382 @@
+{
+  "meta": {
+    "source": "LoA-LSAG-LFMM_EN v5.0 (08/06/2026)",
+    "scope": "Interface Geneva ACC (LSAG) <-> Marseille ACC (LFMM). Sections 2.2, 2.3, 3.1, 3.2.1 a 3.2.7.",
+    "notScoped": "Section 0 (definitions) et 2.1 (classification d'espace) non encodees.",
+    "conventions": [
+      "Les cles a l'interieur d'un bloc 'when' se combinent en ET logique : {dep:[...], arr:[...]} = departs de X a destination de Y.",
+      "'maxFl' = niveau maximum autorise (la LoA raisonne en MAX FL sur presque toutes les lignes), 'fl' = niveau exact impose.",
+      "Le decoupage LFMM_W / LFMM_E par COP est deduit de la geographie et de l'AIP ENR 2.2.4.1 (secteurs LE, G, Y pour W ; MN, B pour E) : la LoA ne l'attribue pas COP par COP."
+    ],
+    "disclaimer": "FOR SIMULATION USE ONLY - NOT VALID FOR REAL OPERATIONS"
+  },
+
+  "stations": {
+    "LSAG_INS_CTR": { "freq": "124.225", "name": "Swiss Radar (INS)", "fallback": [],
+                      "note": "Position primaire. Couvre tout LSAG : INN, INE, INS, L1-L6 (SFC-UNL). Si LSAG_INS et LSAS_LM1 sont connectes, LSAG_INS est par defaut le seul secteur concerne par cette LoA (2.2.1)" },
+    "LSAS_LM1_CTR": { "freq": "133.405", "name": "Swiss Radar (LSAS)", "fallback": ["LSAG_INS_CTR"],
+                      "note": "SFC-UNL (LSAG et LSAZ). Gere la partie Zurich si LSAG_INS est ouvert ; peut, apres coordination, prendre l'espace superieur LSAG (FL245-UNL)" },
+    "LSAG_L1_CTR":  { "freq": "134.850", "name": "Swiss Radar (L1)", "fallback": ["LSAG_INS_CTR", "LSAS_LM1_CTR"],
+                      "note": "Secteurs L1-L6 (FL245-UNL)" },
+    "LSAG_L4_CTR":  { "freq": "124.030", "name": "Swiss Radar (Upper 4)", "fallback": ["LSAG_L1_CTR", "LSAG_INS_CTR", "LSAS_LM1_CTR"],
+                      "note": "Secteurs L4-L6 (FL335-UNL)" },
+    "LSAG_LM6_CTR": { "freq": "133.690", "name": "Swiss Radar (LM6)", "fallback": ["LSAG_INS_CTR", "LSAS_LM1_CTR"],
+                      "note": "LSAG et LSAZ superieur (FL245-UNL)" },
+    "LSAG_INE_CTR": { "freq": "128.905", "name": "Swiss Radar (INE)", "fallback": ["LSAG_INS_CTR", "LSAS_LM1_CTR"] },
+    "LSAG_INN_CTR": { "freq": "134.030", "name": "Swiss Radar (INN)", "fallback": ["LSAG_INS_CTR", "LSAS_LM1_CTR"] },
+    "LSGG_APP":     { "freq": "136.255", "name": "Geneva Arrival", "fallback": ["LSAG_INS_CTR", "LSAS_LM1_CTR"] },
+    "LSGG_DEP":     { "freq": "119.530", "name": "Geneva Departure", "fallback": ["LSGG_APP", "LSAG_INS_CTR", "LSAS_LM1_CTR"] },
+    "LFMM_CTR":     { "freq": "128.850", "name": "Marseille Control", "fallback": [] },
+    "LFMM_W_CTR":   { "freq": "132.635", "name": "Marseille Control (West)", "fallback": ["LFMM_CTR"],
+                      "note": "Frequence 132.635 selon cette LoA ; la LoA LFBB-LFMM v7.1 indique 132.365 - divergence a arbitrer" },
+    "LFMM_E_CTR":   { "freq": "127.905", "name": "Marseille Control (East)", "fallback": ["LFMM_CTR"] },
+    "LFLL_APP":     { "freq": "136.075", "name": "Lyon Approach", "fallback": ["LFMM_W_CTR", "LFMM_CTR"] },
+    "LFLB_APP":     { "freq": "121.205", "name": "Chambery Approach", "fallback": ["LFLL_APP", "LFMM_W_CTR", "LFMM_CTR"],
+                      "note": "Si LFLL_APP est connecte et LFLB_APP hors ligne, LFLL_APP est responsable de l'espace de Chambery (2.2.5)" }
+  },
+
+  "groups": {
+    "LSGG_TMA": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"],
+    "LSAG_CTA": ["LSGC", "LSGS", "LSGK", "LSMP"],
+    "LSZ_NORTH": ["LSZB", "LSZC", "LSZG", "LSME", "LSMA"],
+    "NORTH_GROUP": ["LSZH", "LSMD", "EDTD", "EDTM", "LSZA", "LFSB", "LFSM", "LFGB", "LFGA"],
+    "LIM_NORTH": ["LIMA", "LIMB", "LIMC", "LIME", "LIMG", "LIML", "LIMN", "LIMP", "LIMS", "LSZL", "LSZA", "LSZS"],
+    "LYON_ARR": ["LFLL", "LFLY", "LFLS", "LFHS", "LFHV", "LFLM"],
+    "NICE_GROUP": ["LFMD", "LFMN", "LFMF", "LFTZ", "LFMC", "LFTF", "LFTH"],
+    "BARCELONA_GROUP": ["LEBL", "LEGE", "LERS", "LELL", "LEDA"]
+  },
+
+  "defaults": {
+    "accToApp": { "level": { "coordination": true },
+      "note": "Cette LoA ne definit pas de niveau ACC->APP generique : voir 3.2.3 (LSAG ACC -> Lyon APP, FL110 par AMKEN)" },
+    "appToAcc": { "level": { "coordination": true },
+      "note": "Cette LoA ne definit pas de niveau APP->ACC generique : voir 3.2.4 a 3.2.7" },
+    "general": [
+      "La coordination se fait par reference au COP de la route concernee et aux niveaux du 3.2.",
+      "Le trafic est repute maintenir le niveau coordonne au point de transfert de controle sauf condition de montee/descente explicite (3.1).",
+      "Toute deviation (COP, route, FL) impose une approval request de l'organisme transferant (3.1).",
+      "Le transfert de controle a lieu a la limite d'AoR (3.1).",
+      "Le transfert de communication a lieu des que possible, degage de tout conflit, au plus tard au transfert de controle, si possible au moins 1 minute avant la limite d'AoR (3.1).",
+      "Silent handover possible a 10 NM minimum ; si separation longitudinale < 20 NM, vitesses assignees aux deux avions, le leader >= le suiveur, report de la vitesse assignee au premier contact (3.1).",
+      "A l'ouverture, Geneve informe Marseille de la piste en service a Geneve (3.1).",
+      "A l'ouverture, Lyon (ou Marseille) informe Geneve de la piste en service a Lyon (3.1)."
+    ]
+  },
+
+  "rules": [
+
+    { "id": "lsag-argis", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_W_CTR",
+      "routes": ["MILPA-ARGIS", "MILPA-NUSBA-ARGIS", "ARGIS-DEPUL-LSE"],
+      "cop": ["ARGIS"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LFLU", "LFMH"] }, "level": { "maxFl": 270 },
+          "note": "Route MILPA-NUSBA-ARGIS" },
+        { "when": { "dep": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] }, "level": { "maxFl": 190 },
+          "note": "Route ARGIS-DEPUL-LSE. Ces trafics doivent franchir DEPUL a FL150 ou au-dessus, sinon Geneve coordonne le trafic avec Lyon APP (3.2.1.1)" }
+      ] },
+
+    { "id": "lsag-nintu", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_W_CTR",
+      "routes": ["MILPA-NINTU-MEBAK", "DCT NINTU"],
+      "cop": ["NINTU"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LSZH", "LSZA", "LSZS", "LSMD", "EDTD", "EDTM", "LFSB", "LFSM", "LFGB", "LFGA"] },
+          "level": { "maxFl": 370 } },
+        { "when": { "arr": ["LFCR"] }, "level": { "maxFl": 350 } },
+        { "when": { "arr": ["LFLC", "LFLV", "LFLO", "LFLN"] }, "level": { "maxFl": 310 } },
+        { "when": { "dep": ["LSZB", "LSZC", "LSZG", "LSME", "LSMA", "LSGC", "LSGS", "LSGK", "LSMP"] },
+          "level": { "maxFl": 310 } }
+      ] },
+
+    { "id": "lsag-balsi", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_W_CTR",
+      "routes": ["MILPA-ONNOF-BALSI", "GEVEA-INCUS-BALSI", "DCT BALSI"],
+      "cop": ["BALSI"],
+      "level": { "parity": "odd", "forbidden": [210] },
+      "exceptions": [
+        { "when": { "dep": ["LSZH", "LSMD", "EDTD", "EDTM", "LSZA", "LFSB", "LFSM", "LFGB", "LFGA"] },
+          "level": { "maxFl": 370 } },
+        { "when": { "arr": ["LFHO", "LFMA", "LFMI", "LFML", "LFMO", "LFMV", "LFMY", "LFMQ", "LFMT", "LFMU", "LFTW"] },
+          "level": { "maxFl": 350 } },
+        { "when": { "dep": ["LSZH", "LSMD", "EDTD", "EDTM", "LSZA", "LFSB", "LFSM", "LFGB", "LFGA"],
+                    "arr": ["LEBL", "LEGE", "LERS", "LELL", "LEDA"] },
+          "level": { "maxFl": 350 } },
+        { "when": { "dep": ["LSZB", "LSZC", "LSZG", "LSME", "LSMA", "LSGC", "LSGS", "LSGK", "LSMP"] },
+          "level": { "maxFl": 310 } }
+      ] },
+
+    { "id": "lsag-pas-balsi-04", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_W_CTR",
+      "routes": ["PAS-BALSI"], "cop": ["BALSI"],
+      "when": { "dep": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"], "config": "LSGG QFU 04" },
+      "level": { "maxFl": 190 },
+      "note": "Etabli sur la trajectoire PAS-BALSI au plus tard a RUMIL en montee FL190 ; FL190 atteint au plus tard a la limite d'AoR (TMA 9 Geneve). Marseille ACC separe ces trafics de ceux partant de Lyon par SID RISOR vers GEMLA ou ASLEG (3.2.1.2)" },
+
+    { "id": "lsag-pas-balsi-22", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_W_CTR",
+      "routes": ["PAS-BALSI"], "cop": ["BALSI"],
+      "when": { "dep": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"], "config": "LSGG QFU 22" },
+      "level": { "maxFl": 150 },
+      "note": "Etabli sur la trajectoire PAS-BALSI au plus tard a BEVEN en montee FL150 ; FL150 atteint au plus tard a BEVEN (3.2.1.2)" },
+
+    { "id": "lsag-gigus", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_W_CTR",
+      "routes": ["RONOP-GIGUS-BALSI"], "cop": ["GIGUS"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFLC", "LFLV", "LFLO", "LFLN"] }, "level": { "maxFl": 340 } },
+        { "when": { "dep": ["LIMA", "LIMB", "LIMC", "LIME", "LIMG", "LIML", "LIMN", "LIMP", "LIMS", "LSZL", "LSZA", "LSZS"] },
+          "level": { "maxFl": 340 } },
+        { "when": { "dep": ["LIMF", "LIMW", "LIMZ"] }, "level": { "maxFl": 320 } },
+        { "when": { "arr": ["LFMH"] }, "level": { "maxFl": 300 } }
+      ] },
+
+    { "id": "lsag-gigus-amvar", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_W_CTR",
+      "routes": ["GIGUS-AMVAR-OSMAS"], "cop": ["GIGUS"],
+      "when": { "arr": ["LFLL", "LFLY", "LFLS", "LFLU", "LFLB", "LFLP"] },
+      "level": { "maxFl": 200 },
+      "note": "Reserve a ces arrivees (ONLY). LTA Alpes et relief : trafic etabli sur GIGUS-AMVAR au plus tard a GIGUS. Geneve etablit dans la mesure du possible une sequence entre arrivees successives ; a defaut FL210 peut etre utilise (3.2.1.3)" },
+
+    { "id": "lsag-vevar-barso", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_E_CTR",
+      "routes": ["MEDAM-VEVAR-BARSO"], "cop": ["VEVAR"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LSGC", "LSGS", "LSGK", "LSMP", "LSGG", "LSGL", "LSGP", "LFLI", "LFHN", "LSZB", "LSZC", "LSZG", "LSME", "LSMA"] },
+          "level": { "maxFl": 330 } }
+      ] },
+
+    { "id": "lsag-vevar-gapdo", "ref": "3.2.1", "from": "LSAG", "to": "LFMM_E_CTR",
+      "routes": ["MEDAM-VEVAR-GAPDO"], "cop": ["VEVAR"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LFMD", "LFMN", "LFMF", "LFTZ", "LFMC", "LFTF", "LFTH"] }, "level": { "maxFl": 330 } },
+        { "when": { "dep": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN", "LSGC", "LSGS", "LSGK", "LSMP"],
+                    "arr": ["LFMD", "LFMN", "LFMF", "LFTZ", "LFMC", "LFTF", "LFTH"] },
+          "level": { "maxFl": 230 } }
+      ],
+      "note": "Le tableau renvoie a 3.2.1.1 sur la ligne FL230, ce renvoi parait errone (3.2.1.1 traite de DEPUL)" },
+
+    { "id": "lfmm-ronla", "ref": "3.2.2", "from": "LFMM_W", "to": "LSAG_INS_CTR",
+      "routes": ["MABES-RONLA-MOREG"], "cop": ["RONLA"],
+      "when": { "dep": ["LFLL", "LFLY", "LFLN"] },
+      "level": { "maxFl": 190, "trend": "climbing" },
+      "note": "Via L47. Transferes a Swiss Radar en montee FL190 ; FL190 atteint au plus tard a RONLA (3.2.2.1)" },
+
+    { "id": "lfmm-asleg", "ref": "3.2.2", "from": "LFMM_W", "to": "LSAG_INS_CTR",
+      "routes": ["RISOR-ASLEG"], "cop": ["ASLEG"],
+      "when": { "dep": ["LFLL", "LFLY", "LFLS"] },
+      "level": { "maxFl": 220 },
+      "note": "Reserve a ces departs (ONLY). Clairance FL220 (ou RFL si inferieur mais pas sous FL160), FL200 minimum a ASLEG. Si impossible ou si RFL<195, Marseille initie une coordination avec Swiss Radar (3.2.2.2)" },
+
+    { "id": "lfmm-gemla", "ref": "3.2.2", "from": "LFMM_W", "to": "LSAG_INS_CTR",
+      "routes": ["RISOR-GEMLA"], "cop": ["GEMLA"],
+      "when": { "dep": ["LFLL", "LFLY", "LFLS"] },
+      "level": { "maxFl": 220 },
+      "note": "Reserve a ces departs (ONLY). Clairance FL220 (ou FL210 si RFL) pour etre en palier a GEMLA. Si impossible, Marseille initie une coordination avec Swiss Radar (3.2.2.2)" },
+
+    { "id": "lfmm-belus-22", "ref": "3.2.2", "from": "LFMM_W", "to": "LSGG_APP",
+      "routes": ["BELUS-RILTI-CBY"], "cop": ["BELUS"],
+      "when": { "arr": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"], "config": "LSGG QFU 22" },
+      "level": { "fl": 180, "at": "RILTI" },
+      "note": "Reserve a ces arrivees (ONLY). STAR BELUS *R, FL180 niveau par RILTI. LSGG_APP informe Marseille quand l'attente CBY est active ; attente CBY active = coordination Marseille -> LSGG_APP pour chaque arrivee (3.2.2.3)" },
+
+    { "id": "lfmm-belus-04", "ref": "3.2.2", "from": "LFMM_W", "to": "LSGG_APP",
+      "routes": ["BELUS-RILTI-CBY"], "cop": ["BELUS"],
+      "when": { "arr": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"], "config": "LSGG QFU 04" },
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "STAR BELUS *N, en descente FL150 avec restriction FL160 ou moins a BELUS, vitesse stabilisee a 250 kt a BELUS (3.2.2.3)" },
+
+    { "id": "lfmm-omasi", "ref": "3.2.2", "from": "LFMM_W", "to": "LSAG_INS_CTR",
+      "routes": ["GIPNO-SOPLO-OMASI"], "cop": ["OMASI"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFSB", "LFSM", "LFGA", "LFGB", "LFST", "LFSN", "LFJL", "LSZH", "LSMD", "LSZA", "LSZR", "LSZS", "EDNY", "EDTD", "EDTM"] },
+          "level": { "maxFl": 320 } },
+        { "when": { "arr": ["LSZB", "LSZG", "LSZC", "LSME", "LSMA"] }, "level": { "maxFl": 280 } },
+        { "when": { "dep": ["LFLC", "LFLV", "LFLN", "LFLO", "LFMH", "LFLU"] }, "level": { "maxFl": 280 } },
+        { "when": { "arr": ["LSGC", "LSGS", "LSMP"] }, "level": { "maxFl": 260 } },
+        { "when": { "arr": ["LSGK", "LSTS"] }, "level": { "maxFl": 240 } }
+      ] },
+
+    { "id": "lfmm-robex", "ref": "3.2.2", "from": "LFMM_W", "to": "LSAG_INS_CTR",
+      "routes": ["BALSI-ROBEX-BLONA"], "cop": ["ROBEX"],
+      "level": { "parity": "odd", "forbidden": [210] },
+      "exceptions": [
+        { "when": { "arr": ["LIMJ", "LIP*", "LIRZ"], "arrExcept": ["LIPZ"] }, "level": { "maxFl": 370 } },
+        { "when": { "arr": ["LIMA", "LIMB", "LIMC", "LIME", "LIMG", "LIML", "LIMN", "LIMP", "LIMS", "LSZL", "LSZA", "LSZS"] },
+          "level": { "maxFl": 270 } },
+        { "when": { "arr": ["LIMF", "LIMW", "LIMZ"] }, "level": { "maxFl": 230 } }
+      ],
+      "note": "Marseille ACC considere BALSI-BLONA et NEDRU-BLONA comme un axe unique et assure la separation a BLONA (3.2.2.4)" },
+
+    { "id": "lfmm-emmef", "ref": "3.2.2", "from": "LFMM_W", "to": "LSAG_INS_CTR",
+      "routes": ["NEDRU-EMMEF-BLONA"], "cop": ["EMMEF"],
+      "level": { "parity": "odd", "forbidden": [210] },
+      "exceptions": [
+        { "when": { "arr": ["LIMJ", "LIP*", "LIRZ"], "arrExcept": ["LIPZ"] }, "level": { "maxFl": 370 } },
+        { "when": { "arr": ["LIMA", "LIMB", "LIMC", "LIME", "LIMG", "LIML", "LIMN", "LIMP", "LIMS", "LSZL", "LSZA", "LSZS"] },
+          "level": { "maxFl": 270 } },
+        { "when": { "arr": ["LIMF", "LIMW", "LIMZ"] }, "level": { "maxFl": 230 } }
+      ],
+      "note": "Marseille ACC considere BALSI-BLONA et NEDRU-BLONA comme un axe unique et assure la separation a BLONA (3.2.2.4)" },
+
+    { "id": "lfmm-irmar", "ref": "3.2.2", "from": "LFMM_E", "to": "LSAG_INS_CTR",
+      "routes": ["OKTET-IRMAR", "BARSO-IRMAR"], "cop": ["IRMAR"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LSZH", "LSMD", "LSZA", "LSZR", "LSZS", "EDNY", "EDTD", "EDTM", "LFSB", "LFSM", "LFGA", "LFGB"] },
+          "level": { "maxFl": 340 } },
+        { "when": { "arr": ["LSGC", "LSGS", "LSGK", "LSMP", "LSZB", "LSZG", "LSZC", "LSME", "LSMA", "LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] },
+          "level": { "maxFl": 300 } },
+        { "when": { "dep": ["LFMD", "LFMN", "LFMF", "LFTZ", "LFTH", "LFTF", "LFMC"] }, "level": { "maxFl": 260 } },
+        { "when": { "dep": ["LFMD", "LFMN", "LFMF", "LFTZ", "LFTH", "LFTF", "LFMC"],
+                    "arr": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN", "LSGC", "LSGS", "LSGK", "LSMP", "LSZB", "LSZG", "LSZC", "LSME", "LSMA"] },
+          "level": { "maxFl": 240 } }
+      ] },
+
+    { "id": "lsag-lfll-milpa", "ref": "3.2.3", "from": "LSAG", "to": "LFLL_APP",
+      "routes": ["STAR MILPA"], "cop": ["MILPA", "AMKEN"],
+      "when": { "arr": ["LFLL", "LFLY", "LFLS", "LFHS", "LFHV", "LFLM"], "rflAbove": 155 },
+      "level": { "fl": 110, "at": "AMKEN", "trend": "descending" },
+      "note": "Transfert direct LSAG ACC -> Lyon APP. Sauf coordination, FL110 en palier a AMKEN ou avant avec 10 NM de separation longitudinale ; si 10 NM impossible, transfert avec separation verticale. STAR MILPA *N (LFLL RWY 35) ou *S (LFLL RWY 17) ; LFLS equipe RNAV via MILPA *A. Conflit entre une arrivee MILPA RFL>155 (LSAG ACC) et une arrivee MILPA RFL<155 (Geneva APP) : LSAG ACC coordonne avec Geneva APP. Attente RIPTU : Lyon APP indique le premier FL utilisable et transmet l'EAT si disponible (3.2.3)" },
+
+    { "id": "lsgg-lfll-argis", "ref": "3.2.4", "from": "LSGG_APP", "to": "LFLL_APP",
+      "routes": ["T544", "Z66"], "cop": ["ARGIS"],
+      "level": { "allowed": [90, 110, 130] },
+      "note": "Les vols non-RNAV a destination de LFLS sont transferes a Lyon APP via ARGIS-DEPUL a FL090 et coordonnes avec Lyon APP. Les vols sur T544/Z66 a FL090 ou en dessous sont coordonnes avec Lyon APP (3.2.4.1)" },
+
+    { "id": "lsgg-lfll-milpa", "ref": "3.2.4", "from": "LSGG_APP", "to": "LFLL_APP",
+      "routes": ["STAR MILPA"], "cop": ["AMKEN"],
+      "when": { "arr": ["LFLS", "LFLL", "LFLY", "LFHS", "LFHV", "LFLM"], "rflBelow": 155 },
+      "level": { "maxFl": 110, "at": "AMKEN" },
+      "note": "STAR MILPA *N (LFLL RWY 35) ou *S (LFLL RWY 17) ; LFLS equipe RNAV via MILPA *A. Sauf coordination, FL110 en palier a AMKEN ou avant avec 10 NM ; sinon separation verticale. Attente RIPTU : Lyon APP indique le premier FL utilisable et l'EAT (3.2.4.2)" },
+
+    { "id": "lsgg-lfll-depul", "ref": "3.2.4", "from": "LSGG_APP", "to": "LFLL_APP",
+      "routes": ["SID DEPUL", "DCT AMKEN"], "cop": ["AMKEN"],
+      "when": { "dep": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"],
+                "arr": ["LFLS", "LFLL", "LFLY", "LFHS", "LFHV", "LFLM", "LFLO", "LFLN"] },
+      "level": { "maxFl": 80 },
+      "note": "Vols avec RFL>145 : franchir DEPUL a FL150 ou au-dessus, sinon Geneve coordonne le vol avec Lyon APP. Vols avec RFL<145 : transferes a Lyon APP a FL080 (3.2.4.3)" },
+
+    { "id": "lfll-lsgg-z16", "ref": "3.2.5", "from": "LFLL_APP", "to": "LSGG_APP",
+      "routes": ["Z16"], "cop": ["CBY"],
+      "level": { "allowed": [80, 100] },
+      "note": "Transits via BELUS-PAS" },
+
+    { "id": "lfll-lsgg-n871", "ref": "3.2.5", "from": "LFLL_APP", "to": "LSGG_APP",
+      "routes": ["N871"], "cop": ["NAVLA"],
+      "level": { "allowed": [120, 140] },
+      "exceptions": [
+        { "when": { "dep": ["LFLU"], "rflBelow": 145 }, "level": { "maxFl": 120 } }
+      ],
+      "note": "Transits via LTP-MOLUS" },
+
+    { "id": "lfll-lsgg-z32-lfll", "ref": "3.2.5", "from": "LFLL_APP", "to": "LSGG_APP",
+      "routes": ["Z32"], "cop": ["RONLA"],
+      "when": { "dep": ["LFLL", "LFLY"], "rflBelow": 145 },
+      "level": { "maxFl": 100 } },
+
+    { "id": "lfll-lsgg-z32-autres", "ref": "3.2.5", "from": "LFLL_APP", "to": "LSGG_APP",
+      "routes": ["Z32"], "cop": ["RONLA"],
+      "when": { "dep": ["LFHV", "LFLM", "LFHS"] },
+      "level": { "maxFl": 100 } },
+
+    { "id": "lfll-lsgg-z32-interdit", "ref": "3.2.5", "from": "LFLL_APP", "to": "LSGG_APP",
+      "routes": ["Z32"], "cop": ["RONLA"],
+      "when": { "arr": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] },
+      "level": { "prohibited": true },
+      "note": "Z32/RONLA interdit pour les arrivees Geneve" },
+
+    { "id": "lfll-lsgg-belus-dep", "ref": "3.2.5", "from": "LFLL_APP", "to": "LSGG_APP",
+      "routes": ["STAR LSGG", "SID BELUS"], "cop": ["BELUS"],
+      "when": { "dep": ["LFLL", "LFLY", "LFHS", "LFHV", "LFLM", "LFLO", "LFLN", "LFLS", "LFMH"],
+                "arr": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] },
+      "level": { "maxFl": 120 } },
+
+    { "id": "lfll-lsgg-belus-lfls", "ref": "3.2.5", "from": "LFLL_APP", "to": "LSGG_APP",
+      "routes": ["STAR LSGG", "SID BELUS"], "cop": ["BELUS"],
+      "when": { "dep": ["LFLS"], "rflBelow": 145 },
+      "level": { "maxFl": 120 } },
+
+    { "id": "lfll-lsgg-belus-transit", "ref": "3.2.5", "from": "LFLL_APP", "to": "LSGG_APP",
+      "routes": ["STAR LSGG", "SID BELUS"], "cop": ["BELUS"],
+      "when": { "arr": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] },
+      "level": { "maxFl": 140 },
+      "note": "Transits TMA Lyon a destination de Geneve" },
+
+    { "id": "lsgg-lflb-collo", "ref": "3.2.6", "from": "LSGG_APP", "to": "LFLB_APP",
+      "routes": ["SALEV *P", "DCT COLLO"], "cop": ["COLLO"],
+      "level": { "coordination": true, "release": { "altitude": 6500 } },
+      "note": "Trafics transferes via COLLO releases pour descente 6500 ft ; transfert des que possible, au moins 1 minute avant COLLO pour permettre a Chambery de transmettre la meteo et la clairance d'approche (3.2.6)" },
+
+    { "id": "lsgg-lflb-general", "ref": "3.2.6", "from": "LSGG_APP", "to": "LFLB_APP",
+      "when": { "arr": ["LFLB", "LFLP"] },
+      "fallback": true,
+      "level": { "coordination": true },
+      "note": "Tout vol IFR entrant dans la TMA Chambery est soumis a coordination. Chambery APP delivre a Geneva APP une clairance d'arrivee et un niveau de transfert (ex. SALEV3P FL080). Departs LSGG/LFLI a destination LFLB/LFLP coordonnes des la clairance ATC avec l'heure estimee de depart. Seule l'attente PIRUV est utilisable pour les vols non-RNAV, Geneva APP informe Chambery au plus tot. Geneva APP obtient l'accord de Chambery APP pour utiliser l'attente CBY a FL100 et FL110 (3.2.6)" },
+
+    { "id": "lflb-lsgg-sid-18", "ref": "3.2.7", "from": "LFLB_APP", "to": "LSGG_APP",
+      "routes": ["SID LFLB"], "cop": ["BANEK"],
+      "when": { "dep": ["LFLB"], "config": "LFLB QFU 18" },
+      "level": { "maxFl": 110, "orRflIfLower": true },
+      "note": "S'applique aussi aux departs des altiports. Departs initialement prevus via VENAT, ESAPI et ODIKI incapables de respecter l'altitude de croisiere et les contraintes ATS : reroutes par Chambery sur un SID PAS. Chambery informe Geneve des departs LFLP/LFLB (ETOT, SID, niveau de transfert) ; Geneve peut demander 5 minutes d'espacement minimum. Transfert des que possible, degage de conflit, releases pour la montee (3.2.7.1)" },
+
+    { "id": "lflb-lsgg-sid-36", "ref": "3.2.7", "from": "LFLB_APP", "to": "LSGG_APP",
+      "routes": ["SID LFLB"], "cop": ["BANEK"],
+      "when": { "dep": ["LFLB"], "config": "LFLB QFU 36" },
+      "level": { "maxFl": 90, "orRflIfLower": true },
+      "note": "S'applique aussi aux departs des altiports (3.2.7.1)" },
+
+    { "id": "lflb-lsgg-sid-lflp", "ref": "3.2.7", "from": "LFLB_APP", "to": "LSGG_APP",
+      "routes": ["SID LFLP"], "cop": ["SOCOF"],
+      "when": { "dep": ["LFLP"] },
+      "level": { "maxFl": 90, "orRflIfLower": true },
+      "note": "ATTENTION : la cellule 'Flight Level Allocation' de cette ligne est fusionnee dans le PDF ; FL90* repris par defaut, a confirmer aupres du FIR (3.2.7.1)" },
+
+    { "id": "lflb-lsgg-belus", "ref": "3.2.7", "from": "LFLB_APP", "to": "LSGG_APP",
+      "routes": ["STAR BELUS"], "cop": ["CBY"],
+      "when": { "arr": ["LSGG", "LSGL", "LSGP", "LFLI", "LFHN"] },
+      "level": { "allowed": [80, 100] } },
+
+    { "id": "lflb-lsgg-z16", "ref": "3.2.7", "from": "LFLB_APP", "to": "LSGG_APP",
+      "routes": ["Z16"], "cop": ["CBY"],
+      "level": { "coordination": true },
+      "note": "Vols de transit. Tous les transits Chambery -> Geneve sont soumis a coordination ; sauf coordination contraire, maintien du FL et de la route coordonnes jusqu'a la limite de la TMA Chambery (3.2.7.2)" },
+
+    { "id": "lflb-lsgg-n871", "ref": "3.2.7", "from": "LFLB_APP", "to": "LSGG_APP",
+      "routes": ["N871"], "cop": ["NAVLA"],
+      "level": { "fl": 100 },
+      "note": "Transit soumis a coordination (3.2.7.2)" }
+  ],
+
+  "specialAreas": [
+    { "id": "geneva-delegation", "ref": "2.3.1", "name": "Espace francais delegue en permanence a la division suisse",
+      "delegatedTo": "LSAG",
+      "parts": [
+        { "name": "SIV Geneve", "vertical": { "from": "SFC", "to": 195 },
+          "reference": "AIP France ENR 2.2.7",
+          "note": "Espace delegue en permanence a l'ATC suisse, sauf la TMA 6 Lyon (FL75-FL145) qui peut etre geree par Lyon APP si aucun controleur n'est disponible sur Geneve (2.2.2)" },
+        { "name": "GENEVA AREA - Delegation 6", "vertical": { "from": 195, "to": "UNL" },
+          "reference": "AIP France ENR 2.2.6",
+          "coordinates": [
+            "444800N 0070045E", "444800N 0064600E", "453500N 0062000E", "454620N 0060757E",
+            "454823N 0060548E", "455100N 0060300E", "460113N 0054937E", "460700N 0054200E",
+            "461400N 0050800E", "463000N 0050915E", "463000N 0060630E", "FRONTIERE FRANCO-SUISSE",
+            "455520N 0070241E", "FRONTIERE FRANCO-ITALIENNE", "452933N 0070319E", "452723N 0070116E",
+            "452115N 0070912E", "FRONTIERE FRANCO-ITALIENNE", "444800N 0070045E"
+          ] }
+      ] },
+
+    { "id": "balcon", "ref": "2.3.1", "name": "Balcon",
+      "delegatedTo": "LFMM_CTR", "vertical": { "from": 195, "to": 245 },
+      "coordinates": [
+        "461312.80N 0055511.08E", "460345.04N 0060952.36E", "455701.48N 0061538.33E",
+        "455010.00N 0060931.00E", "454619.96N 0060756.79E", "454823.07N 0060547.60E",
+        "455100.00N 0060300.00E", "460113.27N 0054936.98E", "460700.00N 0054200.00E",
+        "461312.80N 0055511.08E"
+      ],
+      "note": "Delegue a Marseille ACC lorsque celui-ci est ouvert, pour permettre les montees continues des departs de Geneve" }
+  ],
+
+  "changelog": [
+    { "version": "v5.0", "date": "08/06/2026",
+      "changes": ["Nouveau format", "Conditions d'echange", "Espace LFMM ACC"] }
+  ]
+}

@@ -1,0 +1,412 @@
+{
+  "meta": {
+    "source": "LoA-LFMM_EN v12.2 (15/06/2026)",
+    "scope": "Marseille ACC (LFMM). Sections 3.2.1, 3.2.2, 3.2.3.3 a 3.2.3.7.",
+    "notScoped": "Sections 3.2.4 a 3.2.15 (interfaces APP<->APP) non encodees.",
+    "disclaimer": "FOR SIMULATION USE ONLY - NOT VALID FOR REAL OPERATIONS"
+  },
+
+  "stations": {
+    "LFMM_CTR":  { "freq": "128.850", "name": "Marseille Control",   "fallback": [] },
+    "LFMM_W_CTR":{ "freq": "132.365", "name": "Marseille West",      "fallback": ["LFMM_CTR"] },
+    "LFMM_E_CTR":{ "freq": "127.905", "name": "Marseille East",      "fallback": ["LFMM_CTR", "LFMM_W_CTR"],
+                   "note": "Secteur A repris par LFMM_W si LFMM_E ferme (§2.2.1)" },
+    "LFLN_APP":  { "freq": "123.405", "name": "St-Yan Approach",     "fallback": ["LFLC_APP", "LFMM_W_CTR", "LFMM_CTR"] },
+    "LFLC_APP":  { "freq": "122.225", "name": "Clermont Approach",   "fallback": ["LFMM_W_CTR", "LFMM_CTR"] },
+    "LFLL_APP":  { "freq": "136.075", "name": "Lyon Approach",       "fallback": ["LFMM_W_CTR", "LFMM_CTR"] },
+    "LFLB_APP":  { "freq": "121.205", "name": "Chambery Approach",   "fallback": ["LFLL_APP", "LFMM_W_CTR", "LFMM_CTR"] },
+    "LFMT_APP":  { "freq": "131.055", "name": "Montpellier Approach","fallback": ["LFMM_W_CTR", "LFMM_CTR"] },
+    "LFML_APP":  { "freq": "121.430", "name": "Provence Approach",   "fallback": ["LFMM_W_CTR", "LFMM_CTR"] },
+    "LFMN_APP":  { "freq": "134.475", "name": "Nice Approach",       "fallback": ["LFMM_E_CTR", "LFMM_CTR"] },
+    "LFKJ_APP":  { "freq": "121.050", "name": "Ajaccio Approach",    "fallback": ["LFMM_E_CTR", "LFMM_CTR"] },
+    "LFKB_APP":  { "freq": "123.825", "name": "Bastia Approach",     "fallback": ["LFMM_E_CTR", "LFMM_CTR"] }
+  },
+
+  "defaults": {
+    "accToApp": {
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Arrivees transferees a l'APP en descente FL150 sur STAR ou vers le dernier point FPL (§3.2.3)"
+    },
+    "appToAcc": {
+      "level": { "fl": 140, "trend": "climbing" },
+      "note": "Departs transferes en montee FL140 sur SID ou vers le premier point FPL (§3.2.3)"
+    },
+    "general": [
+      "Le trafic est repute maintenir le niveau coordonne au COP sauf condition de montee/descente explicite (§3.1).",
+      "Toute deviation (COP, route, FL) impose une approval request (§3.1).",
+      "Silent handover possible a 10 NM, obligatoire si separation longitudinale < 20 NM (§3.1)."
+    ]
+  },
+
+  "rules": [
+
+    { "id": "w2e-fra", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["FIRRA", "OBLAD", "OLNUL", "TINOT-PELOS"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFMA","LFML","LFMQ","LFMV","LFMY","LFMI","LFTW"] }, "level": { "fl": 310 } }
+      ] },
+
+    { "id": "w2e-stp-nosta", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["STP-NOSTA"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LIMG","LIMJ"] }, "level": { "fl": 300 } }
+      ] },
+
+    { "id": "w2e-turil-stp", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["TURIL-STP"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LFKB","LFKC","LFKS"] }, "level": { "fl": 330 } },
+        { "when": { "dep": ["LFMT"] }, "level": { "fl": 310 } }
+      ] },
+
+    { "id": "w2e-tinot-ajo", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["TINOT-AJO"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFMA","LFML","LFMQ","LFMV","LFMY","LFMI","LFTW"] }, "level": { "fl": 290 } }
+      ] },
+
+    { "id": "w2e-maxir-lusol", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["MAXIR-LUSOL"],
+      "level": { "parity": "even", "forbidden": [200, 220] },
+      "exceptions": [
+        { "when": { "arr": ["LSGC","LSGK","LSGS","LSMP","LSGL","LSGG","LSGP","LFLI","LFHN","LSZB","LSZC","LSZG","LSMA","LSME","LSMU"] },
+          "level": { "fl": 340 } }
+      ] },
+
+    { "id": "w2e-ablak-abili", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["ABLAK-ABILI"],
+      "level": { "coordination": true },
+      "exceptions": [
+        { "when": { "arr": ["LFMN"] }, "level": { "fl": 220, "at": "ABLAK" } },
+        { "when": { "arr": ["LFMD","LFMC","LFTZ","LFTH"] }, "level": { "fl": 200, "at": "ABLAK" } }
+      ],
+      "note": "Modifie en v12.2 (xFL arrivees LFMN via ABLAK)" },
+
+    { "id": "w2e-otrot-beper", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["OTROT-BEPER"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFLC"] }, "level": { "coordination": true } }
+      ] },
+
+    { "id": "w2e-romam-beper", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["ROMAM-BEPER"],
+      "level": { "coordination": true },
+      "exceptions": [
+        { "when": { "dep": ["LFLL","LFLY","LFLB","LFLP","LFLU","LFLS"] }, "level": { "fl": 290 } }
+      ],
+      "note": "Aucun niveau par defaut au tableau : hors departs Lyon/Chambery, coordination (§3.1)" },
+
+    { "id": "w2e-tunur-nisar", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["TUNUR-NISAR"],
+      "level": { "coordination": true },
+      "exceptions": [
+        { "when": { "arr": ["LFMN"] }, "level": { "fl": 340, "at": "NISAR" } }
+      ] },
+
+    { "id": "w2e-mtl-xatel", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["MTL-XATEL"],
+      "level": { "coordination": true },
+      "exceptions": [
+        { "when": { "arr": ["LFMD","LFMC","LFTH","LFTF","LFTZ"] }, "level": { "fl": 310, "at": "XATEL" } }
+      ] },
+
+    { "id": "w2e-balsi-kotit", "ref": "3.2.1", "from": "LFMM_W", "to": "LFMM_E_CTR",
+      "cop": ["BALSI-KOTIT"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LSGC","LSGS","LSGK","LSMP"] }, "level": { "fl": 350 } },
+        { "when": { "dep": ["LSGG","LSGL","LSGP","LFLI","LFHN"] }, "level": { "fl": 290 } }
+      ] },
+
+    { "id": "e2w-fra", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["OBLAD", "OLNUL", "SURJU", "OKSER-TINOT"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFML","LFMA","LFMQ","LFMV","LFMY","LFMI","LFTH","LFTW","LFMT","LFMU"] }, "level": { "fl": 320 } }
+      ] },
+
+    { "id": "e2w-stp-padko", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["STP-PADKO"],
+      "level": { "parity": "even", "maxFl": 320 },
+      "exceptions": [
+        { "when": { "arr": ["LFMT","LFTW","LFMU","LFMP"] }, "level": { "fl": 280 } }
+      ] },
+
+    { "id": "e2w-ajo-tinot", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["AJO-TINOT"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LFKJ","LFKF"] }, "level": { "fl": 340 } },
+        { "when": { "arr": ["LFML","LFMA","LFMQ","LFMV","LFMY","LFMI","LFTW"] }, "level": { "fl": 300 } }
+      ] },
+
+    { "id": "e2w-lerma-epolo", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["LERMA-EPOLO", "STP-TURIL"],
+      "level": { "coordination": true },
+      "exceptions": [
+        { "when": { "dep": ["LFMN","LFMD","LFTZ"] }, "level": { "fl": 240 } }
+      ] },
+
+    { "id": "e2w-kotit-lasur", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["KOTIT-LASUR"],
+      "level": { "coordination": true },
+      "exceptions": [
+        { "when": { "arr": ["LFLL","LFLY","LFLS","LFLB","LFLP"] }, "level": { "fl": 200, "at": "KOTIT" } }
+      ] },
+
+    { "id": "e2w-tupox-mtg", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["TUPOX-MTG"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LEBL","LEGE","LERS","LELL","LEDA"] }, "level": { "fl": 350 } }
+      ] },
+
+    { "id": "e2w-gangu-padko", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["GANGU-PADKO"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LEBL","LEGE","LERS","LELL","LEDA"] }, "level": { "fl": 350 } },
+        { "when": { "arr": ["LFMK"] }, "level": { "fl": 330 } },
+        { "when": { "arr": ["LFMT","LFMP","LFMU","LFTW"] }, "level": { "fl": 290 } }
+      ] },
+
+    { "id": "e2w-retno-mtl", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["RETNO-MTL"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFLU"] }, "level": { "fl": 180 } }
+      ] },
+
+    { "id": "e2w-kotit-etrek", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["KOTIT-ETREK"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFLX","LFBL","LFBU"] }, "level": { "fl": 340 } },
+        { "when": { "dep": ["LFMN","LFMD","LFTZ"] }, "level": { "fl": 320 } },
+        { "when": { "arr": ["LFOA","LFOZ","LFOJ","LFLD","LFBK","LFQG"] }, "level": { "coordination": true } },
+        { "when": { "arr": ["LFLC","LFLV","LFMH"] }, "level": { "fl": 260 } }
+      ] },
+
+    { "id": "e2w-oktet-gipno", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["OKTET-GIPNO"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LFMN","LFMD","LFTZ"] }, "level": { "fl": 300 } },
+        { "when": { "arr": ["LFLC","LFLV","LFMH","LFLN","LFLO"] }, "level": { "fl": 300 } }
+      ] },
+
+    { "id": "e2w-badod-nedru", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["BADOD-NEDRU"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LFMN","LFMD","LFTZ"] }, "level": { "fl": 300 } }
+      ] },
+
+    { "id": "e2w-abdil-mtl", "ref": "3.2.2", "from": "LFMM_E", "to": "LFMM_W_CTR",
+      "cop": ["ABDIL-MTL"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LFMC"] }, "level": { "parity": "even", "maxFl": 160 },
+          "note": "LoA : inferieur a FL180. Plus haut niveau pair conforme = FL160." }
+      ] },
+
+    { "id": "acc-lfll-arbon", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLL","LFLY"] }, "cop": ["ARBON"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfll-pined", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLL","LFLY"] }, "cop": ["PINED"],
+      "level": { "fl": 130, "at": "LL103", "trend": "descending" } },
+    { "id": "acc-lfll-amvar", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLL","LFLY"] }, "cop": ["AMVAR"],
+      "level": { "fl": 150, "at": "AMVAR", "trend": "descending" } },
+    { "id": "acc-lfll-talar", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLL","LFLY"] }, "cop": ["TALAR"],
+      "level": { "fl": 120, "trend": "descending" },
+      "note": "Niveau a atteindre AVANT l'entree dans l'espace de Lyon" },
+
+    { "id": "acc-lfls-gofog", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLS"] }, "cop": ["GOFOG"],
+      "level": { "fl": 120, "at": "GOFOG", "trend": "descending" } },
+    { "id": "acc-lfls-arbon", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLS"] }, "cop": ["ARBON"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfls-pined", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLS"] }, "cop": ["PINED"],
+      "level": { "fl": 130, "at": "LS662", "trend": "descending" } },
+    { "id": "acc-lfls-amvar", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLS"] }, "cop": ["AMVAR"],
+      "level": { "fl": 150, "at": "AMVAR", "trend": "descending" } },
+
+    { "id": "acc-lflb-mebak", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLB","LFLP"] }, "cop": ["MEBAK","MURRO","ROMAM"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Lyon coordonne ensuite avec Chambery (§3.2.9.2)" },
+    { "id": "acc-lflb-bekri", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLB","LFLP"] }, "cop": ["BEKRI"],
+      "level": { "fl": 150, "at": "BEKRI", "trend": "descending" } },
+    { "id": "acc-lflb-pined", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLB","LFLP"] }, "cop": ["PINED"],
+      "level": { "fl": 130, "at": "PINED", "trend": "descending" } },
+    { "id": "acc-lflb-amvar", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLB","LFLP"] }, "cop": ["AMVAR"],
+      "level": { "fl": 150, "at": "AMVAR", "trend": "descending" } },
+
+    { "id": "acc-lfmh-belep", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFMH"] }, "cop": ["BELEP"],
+      "level": { "fl": 120, "trend": "descending" }, "note": "Via LESPI" },
+    { "id": "acc-lfmh-lse", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFMH"] }, "cop": ["LSE","ETREK","MINDI","MEZIN","AMIKO","AGREV"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Si le dernier point FPL n'est ni AGREV ni TIS, coordination Marseille -> Clermont ou Lyon (§3.2.3.3)" },
+
+    { "id": "acc-lfhp-lyon", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFHP"] }, "cop": ["MURRO","MEZIN"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Via AGREV/MTL - MEZIN. Lyon coordonne avec Clermont (§3.2.3.3)" },
+
+    { "id": "acc-lflu", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLU"] }, "cop": ["AGREV","AMIKO","AMVAR","LSE"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmo-lyon", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFMO"] }, "cop": ["MEZIN","AGREV","AMIKO","ROMAM"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfln", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLN"] }, "cop": ["BELEP","BUSIL"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lflh-bobsi", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLH","LFGJ","LFGF","LFGZ"] }, "cop": ["BOBSI"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lflg-lse", "ref": "3.2.3.4", "from": "LFMM_W", "to": "LFLL_APP",
+      "when": { "arr": ["LFLG"] }, "cop": ["LSE"],
+      "level": { "fl": 150, "trend": "descending" } },
+
+    { "id": "acc-lfml-prov", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFML"] },
+      "cop": ["ARDEG","KURIR","MTL","NIDEV","SOSUR","TINOT","MARRI","LERGA","BALSI","FJR"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "LERGA/BALSI/FJR : points d'entree pour les arrivees en direct (*D/*L), ne suivant pas la STAR" },
+    { "id": "acc-lfma-prov", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMA"] }, "cop": ["MTL","LIPSU","MARRI"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmq-prov", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMQ"] }, "cop": ["ARDEG","KURIR","MTL","LIPSU","SALIN"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmv-prov", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMV"] }, "cop": ["MTL","LACAZ"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmy-prov", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMY"] }, "cop": ["MTL","LIPSU","MARRI"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfth-prov", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFTH"] }, "cop": ["TINOT","SOSUR","MARRI","MTL"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "SOSUR-AGAKI-LIPSU-JULEE utilise en cas d'activite D54 B (§3.2.3.5.1)" },
+    { "id": "acc-lfmt-salin", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMT","LFTW"] }, "cop": ["SALIN"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lftw-mtl", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFTW"] }, "cop": ["MTL"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "En cas d'attente a RIKSI, router MTL-ORDIF-AVN (§3.2.3.5.2)" },
+    { "id": "acc-lfmi-prov", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMI"] }, "cop": ["MTL","SOSUR","TINOT"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmc-mtg", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMC","LFTF"] }, "cop": ["MTG"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmo-salin", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMO"] }, "cop": ["SALIN"],
+      "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmo-coord", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFMO"] }, "cop": ["TINOT","SOSUR"],
+      "level": { "coordination": true }, "note": "Route TINOT/SOSUR-LACAZ-CM" },
+    { "id": "acc-lflu-prov", "ref": "3.2.3.5", "from": "LFMM_W", "to": "LFML_APP",
+      "when": { "arr": ["LFLU"] }, "cop": ["CM","RETNO"],
+      "level": { "coordination": true }, "note": "Routes CM-ORDIF-MTL ou RETNO-MTL" },
+
+    { "id": "acc-prov-lanko", "ref": "3.2.3.5", "from": "LFMM_E", "to": "LFML_APP",
+      "when": { "arr": ["LFML","LFMA","LFMQ","LFMV","LFMY","LFMI","LFMO"] }, "cop": ["LANKO"],
+      "level": { "fl": 120, "at": "LANKO", "trend": "descending" },
+      "note": "Les arrivees TMA Provence via LANKO sont transferees par Marseille EAST, pas West" },
+
+    { "id": "acc-lfmt-star", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
+      "when": { "arr": ["LFMT"] }, "cop": ["MEN","GIGNA","ERGUL","ADEVA","BASLI"],
+      "fallback": true,
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "STAR *T. MEN *E uniquement apres coordination. GIGNA *K seulement RWY 30 + coordination." },
+    { "id": "acc-lfmu-star", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
+      "when": { "arr": ["LFMU"] }, "cop": ["MEN","ESERA","NG"],
+      "level": { "fl": 150, "trend": "descending" }, "note": "STAR *R" },
+    { "id": "acc-lfmp-star", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
+      "when": { "arr": ["LFMP"] }, "cop": ["SUBIL","MTG","PADKO","BULTO"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "STAR *P/*V/*F/*Q. SUBIL *P/*F : niveau de transfert a coordonner." },
+    { "id": "acc-lfcr-montp", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
+      "when": { "arr": ["LFCR"] }, "cop": ["AFRIC","BASLI"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Doit eviter l'espace de Bordeaux ACC" },
+    { "id": "acc-lfci-brusc", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
+      "when": { "arr": ["LFCI","LFCK"] }, "cop": ["BRUSC"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Doit eviter l'espace de Bordeaux ACC" },
+    { "id": "acc-lfmk-montp", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
+      "when": { "arr": ["LFMK"] }, "cop": ["FJR","ORBIL","PPG"],
+      "level": { "fl": 150, "trend": "descending" }, "note": "Route FJR *R ou PPG-ORBIL-ORBIL *R" },
+    { "id": "acc-lfmi-montp", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
+      "when": { "arr": ["LFMI"] }, "cop": ["VALAG","MEN","ESERA"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Arrivees par l'Ouest : VALAG-FJR-NG ou MEN-ESERA. Si CTA Rhone actives, coordonner avec Istres APP." },
+    { "id": "acc-lfmv-ng", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
+      "when": { "arr": ["LFMV"] }, "cop": ["NG"],
+      "level": { "coordination": true }, "note": "Arrivees LFMV via NG a coordonner Marseille -> Montpellier" },
+
+    { "id": "acc-clermont-men", "ref": "3.2.3.3", "from": "LFMM_W", "to": "LFLC_APP",
+      "when": { "arr": ["LFHP","LFCR","LFLW","LFNB"] }, "cop": ["MEN"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Doit eviter l'espace de Bordeaux ACC" },
+    { "id": "acc-clermont-tis", "ref": "3.2.3.3", "from": "LFMM_W", "to": "LFLC_APP",
+      "when": { "arr": ["LFBK"] }, "cop": ["TIS"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Clermont coordonne ensuite avec Limoges APP" },
+    { "id": "acc-clermont-minpa", "ref": "3.2.3.3", "from": "LFMM_W", "to": "LFLC_APP",
+      "when": { "arr": ["LFCR","LFLW"] }, "cop": ["MINPA"],
+      "level": { "fl": 150, "trend": "descending" },
+      "note": "Ne doit pas penetrer l'espace de Bordeaux ACC" },
+
+    { "id": "acc-lfmn-amfou", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFMN"] }, "cop": ["AMFOU"], "level": { "fl": 140, "trend": "descending" } },
+    { "id": "acc-lfmn-lonsu", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFMN"] }, "cop": ["LONSU","KERIT"], "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmn-gapdo", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFMN"] }, "cop": ["GAPDO"], "level": { "fl": 180, "trend": "descending" } },
+    { "id": "acc-lfth-nice", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFTH"] }, "cop": ["UGLET"], "level": { "fl": 120, "trend": "descending" } },
+    { "id": "acc-lfth-perus", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFTH"] }, "cop": ["PERUS-AMFOU"], "level": { "fl": 120, "trend": "descending" } },
+    { "id": "acc-lfth-cuers", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFTH"] }, "cop": ["CUERS-BIRGO"], "level": { "fl": 120, "trend": "descending" } },
+    { "id": "acc-lfth-lerma", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFTH"] }, "cop": ["LERMA","OMARD"], "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfth-pigos", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFTH"] }, "cop": ["STP-PIGOS","RUBIT-PIGOS"], "level": { "fl": 180, "trend": "descending" } },
+    { "id": "acc-lfmd-uglet", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFMD","LFTZ"] }, "cop": ["UGLET"], "level": { "fl": 120, "trend": "descending" } },
+    { "id": "acc-lfmd-amfou", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFMD","LFTZ"] }, "cop": ["PERUS-AMFOU","AMFOU"], "level": { "fl": 120, "trend": "descending" } },
+    { "id": "acc-lfmd-lonsu", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFMD","LFTZ"] }, "cop": ["LONSU","KERIT","MERLU"], "level": { "fl": 150, "trend": "descending" } },
+    { "id": "acc-lfmd-vevar", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFMD","LFTZ"] }, "cop": ["VEVAR-GAPDO"], "level": { "fl": 180, "trend": "descending" } },
+    { "id": "acc-lfmc-gilon", "ref": "3.2.3.6", "from": "LFMM_E", "to": "LFMN_APP",
+      "when": { "arr": ["LFMC","LFTF"] }, "cop": ["UGLET-GILON","AMFOU-GILON"], "level": { "fl": 120, "trend": "descending" } },
+
+    { "id": "acc-lirj-bastia", "ref": "3.2.3.1", "from": "LFMM_E", "to": "LFKB_APP",
+      "when": { "arr": ["LIRJ"] }, "cop": ["MILNO","BTA"],
+      "level": { "fl": 150, "trend": "descending" }, "note": "MILNO via A3, BTA via G374" }
+  ]
+}

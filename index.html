@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+<title>Assistant LOA</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="titlebar">
+  <div class="brand">Assistant LoA<span class="sector" id="sector"></span></div>
+
+  <div class="controls">
+    <button id="connect" class="connect">Connect to Aurora</button>
+    <span class="station" id="station"></span>
+    <div class="win">
+      <button id="min" aria-label="Réduire"><svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg></button>
+      <button id="max" aria-label="Agrandir"><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg></button>
+      <button id="close" class="close" aria-label="Fermer"><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<div class="banner" id="banner" hidden></div>
+
+<main class="table">
+  <div class="head">
+    <span>Indicatif</span>
+    <span>Niveau de transfert</span>
+    <span>Point de transfert</span>
+    <span>Next ATC</span>
+  </div>
+  <div class="rows" id="rows">
+    <p class="empty" id="empty">Connecte-toi à Aurora, puis sélectionne un avion.</p>
+  </div>
+</main>
+
+<footer class="statusbar">
+  <span class="dot" id="dot"></span>
+  <span id="state">Hors ligne</span>
+  <span class="grow"></span>
+  <span id="sel"></span>
+  <span id="atc"></span>
+  <button id="clear" class="ghost">Vider l'historique</button>
+  <button id="debug" class="ghost">Debug</button>
+</footer>
+
+<script src="renderer.js"></script>
+</body>
+</html>
