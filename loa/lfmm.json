@@ -1,5 +1,6 @@
 {
   "meta": {
+    "primary": true,
     "source": "LoA-LFMM_EN v12.2 (15/06/2026)",
     "scope": "Marseille ACC (LFMM). Sections 3.2.1, 3.2.2, 3.2.3.3 a 3.2.3.7.",
     "notScoped": "Sections 3.2.4 a 3.2.15 (interfaces APP<->APP) non encodees.",
@@ -344,6 +345,7 @@
       "level": { "fl": 150, "trend": "descending" }, "note": "STAR *R" },
     { "id": "acc-lfmp-star", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",
       "when": { "arr": ["LFMP"] }, "cop": ["SUBIL","MTG","PADKO","BULTO"],
+      "fallback": true,
       "level": { "fl": 150, "trend": "descending" },
       "note": "STAR *P/*V/*F/*Q. SUBIL *P/*F : niveau de transfert a coordonner." },
     { "id": "acc-lfcr-montp", "ref": "3.2.3.7", "from": "LFMM_W", "to": "LFMT_APP",

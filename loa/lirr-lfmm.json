@@ -1,0 +1,322 @@
+{
+  "meta": {
+    "source": "LoA-LIRR-LFMM_EN v7.0 (19/03/2026)",
+    "scope": "Interface Roma ACC (LIRR) <-> Marseille ACC (LFMM), Ajaccio APP et Bastia APP. Sections 2.2, 2.3, 3.1, 3.2.1 a 3.2.6.",
+    "notScoped": "Section 2.1 (classification d'espace) non encodee.",
+    "conventions": [
+      "Les cles a l'interieur d'un bloc 'when' se combinent en ET logique : {dep:[...], arr:[...]} = departs de X a destination de Y.",
+      "'fl' = niveau exact impose, 'maxFl' = plafond, 'minFl' = plancher, 'parity' = regle semi-circulaire.",
+      "Repartition LIRR_NE / LIRR_EW deduite de la geographie des cartes 2.2.1 et 2.3 : NE pour les COP du nord (Elbe / Corse nord : DOBIM, MIRSA, MOULE, DOKAR), EW pour tous les COP de la Sardaigne. La LoA ne l'attribue pas COP par COP.",
+      "Cote LFMM seul LFMM_E_CTR est concerne par cette LoA (2.2.2)."
+    ],
+    "disclaimer": "FOR SIMULATION USE ONLY - NOT VALID FOR REAL OPERATIONS"
+  },
+
+  "stations": {
+    "LIRR_NE_CTR":  { "freq": "124.200", "name": "Roma Radar (NE)", "fallback": [],
+                      "note": "Secteur primaire. Quand seul LIRR_NE_CTR est ouvert, il couvre aussi le secteur NW (2.2.1)" },
+    "LIRR_EW_CTR":  { "freq": "127.125", "name": "Roma Radar (EW)", "fallback": [],
+                      "note": "Secteur primaire, Sardaigne" },
+    "LIEO_EW0_APP": { "freq": "125.950", "name": "Roma Radar (EW0)", "fallback": ["LIRR_EW_CTR"],
+                      "note": "SFC-FL105" },
+    "LIRR_NW_CTR":  { "freq": "124.800", "name": "Roma Radar (NW)", "fallback": ["LIRR_NE_CTR"],
+                      "note": "Secteur secondaire" },
+    "LFMM_CTR":     { "freq": "128.850", "name": "Marseille Control", "fallback": [] },
+    "LFMM_E_CTR":   { "freq": "127.905", "name": "Marseille Control (East)", "fallback": ["LFMM_CTR"] },
+    "LFKJ_APP":     { "freq": "121.050", "name": "Ajaccio Approach", "fallback": ["LFMM_E_CTR", "LFMM_CTR"] },
+    "LFKB_APP":     { "freq": "123.825", "name": "Bastia Approach", "fallback": ["LFMM_E_CTR", "LFMM_CTR"] }
+  },
+
+  "defaults": {
+    "general": [
+      "Le trafic est repute maintenir le niveau coordonne au COP sauf condition de montee/descente explicite (3.1).",
+      "Toute deviation (COP, route, FL) impose une approval request (3.1).",
+      "Silent handover possible a 10 NM, obligatoire si separation longitudinale < 20 NM (3.1)."
+    ]
+  },
+
+  "rules": [
+
+    { "id": "lirr-mme-dobim", "ref": "3.2.1", "from": "LIRR_NE_CTR", "to": "LFMM_E_CTR",
+      "routes": ["M616", "T378", "FRA"], "cop": ["DOBIM"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFMN", "LFMD", "LFMF", "LFTZ"] }, "level": { "fl": 340 } }
+      ] },
+
+    { "id": "lirr-mme-mirsa", "ref": "3.2.1", "from": "LIRR_NE_CTR", "to": "LFMM_E_CTR",
+      "routes": ["L127", "T246", "FRA"], "cop": ["MIRSA"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFMC", "LFTF", "LFTH"] }, "level": { "fl": 340 } }
+      ] },
+
+    { "id": "lirr-mme-moule", "ref": "3.2.1", "from": "LIRR_NE_CTR", "to": "LFMM_E_CTR",
+      "routes": ["L146"], "cop": ["MOULE"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFKJ", "LFKO", "LFKF"] }, "level": { "fl": 190 } }
+      ] },
+
+    { "id": "lirr-mme-askag", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["Z154"], "cop": ["ASKAG"],
+      "level": { "parity": "even" } },
+
+    { "id": "lirr-mme-madka", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["M622", "FRA"], "cop": ["MADKA"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFMN", "LFMD", "LFTZ"] }, "level": { "fl": 340 } }
+      ],
+      "seeAlso": "3.2.1.1" },
+
+    { "id": "lirr-mme-okiva", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["P980", "P872", "FRA"], "cop": ["OKIVA"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LIEO"] }, "level": { "fl": 220 } }
+      ] },
+
+    { "id": "lirr-mme-terez", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["Q214"], "cop": ["TEREZ"],
+      "level": { "parity": "even" } },
+
+    { "id": "lirr-mme-corsi", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["M858", "Q213", "FRA"], "cop": ["CORSI"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFMN", "LFMD", "LFTZ"] }, "level": { "fl": 340 } }
+      ],
+      "seeAlso": "3.2.1.1" },
+
+    { "id": "lirr-mme-poulp", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["L42"], "cop": ["POULP"],
+      "level": { "parity": "even" } },
+
+    { "id": "lirr-mme-gopat", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["L978", "FRA"], "cop": ["GOPAT"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LIEA"] }, "level": { "fl": 220 } }
+      ] },
+
+    { "id": "lirr-mme-ginox-okser", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["M732", "FRA"], "cop": ["GINOX-OKSER"],
+      "level": { "parity": "even" } },
+
+    { "id": "lirr-mme-ginox", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["Q714", "Q710", "Q182", "FRA"], "cop": ["GINOX"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LIEA"] }, "level": { "coordination": true } }
+      ] },
+
+    { "id": "lirr-mme-supux", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["Z924", "FRA"], "cop": ["SUPUX"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LIEA"] }, "level": { "coordination": true } }
+      ] },
+
+    { "id": "lirr-mme-xatos", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["FRA"], "cop": ["XATOS"],
+      "level": { "parity": "odd" } },
+
+    { "id": "lirr-mme-tabot", "ref": "3.2.1", "from": "LIRR_EW_CTR", "to": "LFMM_E_CTR",
+      "routes": ["M739"], "cop": ["TABOT"],
+      "level": { "parity": "even" } },
+
+    { "id": "mme-lirr-dobim", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_NE_CTR",
+      "routes": ["R16"], "cop": ["DOBIM"],
+      "level": { "parity": "odd" },
+      "seeAlso": "3.2.2.1" },
+
+    { "id": "mme-lirr-mirsa", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_NE_CTR",
+      "routes": ["A3"], "cop": ["MIRSA"],
+      "level": { "parity": "odd" },
+      "seeAlso": "3.2.2.1" },
+
+    { "id": "mme-lirr-moule", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_NE_CTR",
+      "routes": ["L146", "FRA"], "cop": ["MOULE"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LIRF", "LIRA", "LIRU", "LIRE"] }, "level": { "fl": 290 } },
+        { "when": { "arr": ["LIRQ"] }, "level": { "fl": 270 } },
+        { "when": { "arr": ["LIRS"] }, "level": { "fl": 230 } },
+        { "when": { "arr": ["LIRP"] }, "level": { "fl": 190 } }
+      ],
+      "seeAlso": "3.2.2.1" },
+
+    { "id": "mme-lirr-dokar", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_NE_CTR",
+      "routes": ["FRA"], "cop": ["DOKAR"],
+      "level": { "parity": "odd" } },
+
+    { "id": "mme-lirr-askag", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_EW_CTR",
+      "routes": ["Z154"], "cop": ["ASKAG"],
+      "level": { "parity": "odd" } },
+
+    { "id": "mme-lirr-corsi", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_EW_CTR",
+      "routes": ["FRA", "A9"], "cop": ["CORSI"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LIEO"] }, "level": { "fl": 170 } }
+      ],
+      "seeAlso": "3.2.2.2" },
+
+    { "id": "mme-lirr-revdo", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_EW_CTR",
+      "routes": ["M194"], "cop": ["REVDO"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LIEA"] }, "level": { "fl": 170 } }
+      ],
+      "seeAlso": "3.2.2.2" },
+
+    { "id": "mme-lirr-pelos", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_EW_CTR",
+      "routes": ["Y19", "M623", "M731", "Z240", "FRA"], "cop": ["PELOS"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LIEO"] }, "level": { "fl": 210 } },
+        { "when": { "arr": ["LIEA"] }, "level": { "fl": 150 } }
+      ] },
+
+    { "id": "mme-lirr-elsag", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_EW_CTR",
+      "routes": ["M603", "FRA"], "cop": ["ELSAG"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LIEE", "LIED"] }, "level": { "fl": 300 } },
+        { "when": { "arr": ["LIEO"] }, "level": { "fl": 180 } },
+        { "when": { "arr": ["LIEA"] }, "level": { "fl": 160 } }
+      ] },
+
+    { "id": "mme-lirr-xatos", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_EW_CTR",
+      "routes": ["FRA"], "cop": ["XATOS"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LIEE", "LIED"] }, "level": { "fl": 300 } }
+      ] },
+
+    { "id": "mme-lirr-tabot", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LIRR_EW_CTR",
+      "routes": ["M739"], "cop": ["TABOT"],
+      "level": { "parity": "odd" } },
+
+    { "id": "lirr-lfkj-poulp", "ref": "3.2.3", "from": "LIRR_EW_CTR", "to": "LFKJ_APP",
+      "routes": ["L42"], "cop": ["POULP"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LIEA"], "arr": ["LFKJ", "LFKF", "LFKO", "LFKS"] }, "level": { "fl": 120 } }
+      ],
+      "seeAlso": "3.2.3.1" },
+
+    { "id": "lirr-lfkj-terez", "ref": "3.2.3", "from": "LIRR_EW_CTR", "to": "LFKJ_APP",
+      "routes": ["J19"], "cop": ["TEREZ"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LIEO"], "arr": ["LFKJ", "LFKO", "LFKS"] }, "level": { "fl": 120 } },
+        { "when": { "dep": ["LIEO"], "arr": ["LFKF"] }, "level": { "fl": 100 } }
+      ],
+      "seeAlso": "3.2.3.1" },
+
+    { "id": "lirr-lfkj-pelos", "ref": "3.2.3", "from": "LIRR_EW_CTR", "to": "LFKJ_APP",
+      "routes": ["M623", "M731"], "cop": ["PELOS"],
+      "level": { "parity": "even" } },
+
+    { "id": "lirr-lfkj-askag", "ref": "3.2.3", "from": "LIRR_EW_CTR", "to": "LFKJ_APP",
+      "routes": ["Z154"], "cop": ["ASKAG"],
+      "level": { "parity": "even" },
+      "requires": { "areaInactive": ["LI-D67"] },
+      "note": "Disponible uniquement quand D67 est inactive" },
+
+    { "id": "lfkj-lirr-corsi", "ref": "3.2.4", "from": "LFKJ_APP", "to": "LIRR_EW_CTR",
+      "routes": ["A9", "M858"], "cop": ["CORSI"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFKJ", "LFKO", "LFKS"], "arr": ["LIEA", "LIEO"] }, "level": { "fl": 130 } },
+        { "when": { "dep": ["LFKF"], "arr": ["LIEA", "LIEO"] }, "level": { "fl": 110 } }
+      ] },
+
+    { "id": "lfkj-lirr-pelos", "ref": "3.2.4", "from": "LFKJ_APP", "to": "LIRR_EW_CTR",
+      "routes": ["M623", "M731"], "cop": ["PELOS"],
+      "level": { "parity": "odd" } },
+
+    { "id": "lfkj-lirr-askag", "ref": "3.2.4", "from": "LFKJ_APP", "to": "LIRR_EW_CTR",
+      "routes": ["Z154"], "cop": ["ASKAG"],
+      "level": { "parity": "odd" },
+      "requires": { "areaInactive": ["LI-D67"] },
+      "note": "Disponible uniquement quand D67 est inactive" },
+
+    { "id": "lirr-lfkb-dobim", "ref": "3.2.5", "from": "LIRR_NE_CTR", "to": "LFKB_APP",
+      "routes": ["R16", "M616"], "cop": ["DOBIM"],
+      "when": { "transit": true },
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFKB"] }, "level": { "fl": 130 } }
+      ] },
+
+    { "id": "lirr-lfkb-mirsa", "ref": "3.2.5", "from": "LIRR_NE_CTR", "to": "LFKB_APP",
+      "routes": ["A3", "L127"], "cop": ["MIRSA"],
+      "when": { "transit": true },
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arr": ["LFKC"] }, "level": { "fl": 130 } },
+        { "when": { "dep": ["LIRJ"] }, "level": { "fl": 110 } }
+      ] },
+
+    { "id": "lirr-lfkb-moule", "ref": "3.2.5", "from": "LIRR_NE_CTR", "to": "LFKB_APP",
+      "routes": ["L146"], "cop": ["MOULE"],
+      "when": { "transit": true },
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LFKB", "LFKS"] }, "level": { "fl": 130 } },
+        { "when": { "dep": ["LIRJ"] }, "level": { "fl": 110 } }
+      ] },
+
+    { "id": "lfkb-lirr-dobim", "ref": "3.2.6", "from": "LFKB_APP", "to": "LIRR_NE_CTR",
+      "routes": ["R16", "M616"], "cop": ["DOBIM"],
+      "when": { "transit": true },
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFKB"] }, "level": { "fl": 120 } }
+      ] },
+
+    { "id": "lfkb-lirr-mirsa", "ref": "3.2.6", "from": "LFKB_APP", "to": "LIRR_NE_CTR",
+      "routes": ["A3", "L127"], "cop": ["MIRSA"],
+      "when": { "transit": true },
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "dep": ["LFKC"] }, "level": { "fl": 120 } }
+      ] },
+
+    { "id": "lfkb-lirr-moule", "ref": "3.2.6", "from": "LFKB_APP", "to": "LIRR_NE_CTR",
+      "routes": ["L146"], "cop": ["MOULE"],
+      "when": { "transit": true },
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LFKS"] }, "level": { "fl": 140 } },
+        { "when": { "dep": ["LFKB"] }, "level": { "fl": 120 } },
+        { "when": { "arr": ["LIRJ"] }, "level": { "fl": 100 } }
+      ] }
+  ],
+
+  "notes": {
+    "3.2.1.1": "Roma ACC est responsable de la compatibilite des vols convergeant vers AJO via CORSI ou MADKA.",
+    "3.2.2.1": "Marseille ACC est responsable de la compatibilite des vols convergeant vers ELB via DOBIM, MIRSA et MOULE.",
+    "3.2.2.2": "Marseille ACC doit considerer les vols via CORSI et REVDO comme un flux unique.",
+    "3.2.3.1": "Roma ACC est responsable de la compatibilite des vols convergeant vers AJO via TEREZ ou POULP."
+  },
+
+  "specialAreas": [
+    { "id": "LI-D67", "name": "Solenzara",
+      "info": "Roma ACC informe Marseille ACC et Ajaccio APP de l'activite de LI-D67.",
+      "effects": ["Z154 / ASKAG indisponible entre LIRR et LFKJ quand la zone est active"],
+      "ref": "2.3.1" },
+    { "id": "LI-D29", "name": "Pianosa",
+      "info": "Roma ACC informe Bastia APP de l'activite de LI-D29.",
+      "effects": [],
+      "ref": "2.3.2" }
+  ],
+
+  "changelog": [
+    { "version": "v7.0", "date": "19/03/2026",
+      "changes": ["Nouveau format", "Conditions d'echange", "Espace LFMM ACC"] }
+  ]
+}

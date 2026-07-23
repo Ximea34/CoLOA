@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "source": "LoA-DAAA-LFMM_EN v4.0 (19/02/2026)",
+    "scope": "Interface Algiers ACC (DAAA) <-> Marseille ACC (LFMM). Sections 2.2, 2.3, 3.1, 3.2.1 et 3.2.2.",
+    "notScoped": "Section 2.1 (classification d'espace) non encodee.",
+    "conventions": [
+      "Les cles a l'interieur d'un bloc 'when' se combinent en ET logique : {dep:[...], arr:[...]} = departs de X a destination de Y.",
+      "'fl' = niveau exact impose, 'maxFl' = plafond, 'minFl' = plancher, 'parity' = regle semi-circulaire.",
+      "Cote DAAA les regles portent DAAA_CTR (secteur primaire). Si DAAA_N_CTR ou DAAA_NE_CTR sont en ligne, ils heritent des memes conditions : la LoA n'attribue pas les COP secteur par secteur.",
+      "Cote LFMM seul LFMM_E_CTR est concerne par cette LoA (2.2.2)."
+    ],
+    "disclaimer": "FOR SIMULATION USE ONLY - NOT VALID FOR REAL OPERATIONS"
+  },
+
+  "stations": {
+    "DAAA_CTR":    { "freq": "127.300", "name": "Algiers Control", "fallback": [],
+                     "note": "Secteur primaire" },
+    "DAAA_N_CTR":  { "freq": "127.300", "name": "Algiers Control (N)", "fallback": ["DAAA_CTR"],
+                     "note": "Secteur secondaire" },
+    "DAAA_NE_CTR": { "freq": "125.400", "name": "Algiers Control (NE)", "fallback": ["DAAA_CTR"],
+                     "note": "Secteur secondaire, adjacent a LFMM" },
+    "LFMM_CTR":    { "freq": "128.850", "name": "Marseille Control", "fallback": [] },
+    "LFMM_E_CTR":  { "freq": "127.905", "name": "Marseille Control (East)", "fallback": ["LFMM_CTR"] }
+  },
+
+  "defaults": {
+    "general": [
+      "Le trafic est repute maintenir le niveau coordonne au COP sauf condition de montee/descente explicite (3.1).",
+      "Toute deviation (COP, route, FL) impose une approval request (3.1).",
+      "Silent handover possible a 10 NM, obligatoire si separation longitudinale < 20 NM (3.1).",
+      "Non-RVSM au depart de la FIR Algiers : FL280 maximum (3.2.1.1).",
+      "Non-RVSM au depart de la FIR Marseille : FL270 maximum (3.2.2.1)."
+    ]
+  },
+
+  "rules": [
+
+    { "id": "daaa-mme-otaro", "ref": "3.2.1", "from": "DAAA_CTR", "to": "LFMM_E_CTR",
+      "routes": ["A24", "UA24", "UM989"], "cop": ["OTARO"],
+      "level": { "parity": "even" } },
+
+    { "id": "daaa-mme-dolis", "ref": "3.2.1", "from": "DAAA_CTR", "to": "LFMM_E_CTR",
+      "routes": ["B734", "UN736"], "cop": ["DOLIS"],
+      "level": { "parity": "even" } },
+
+    { "id": "daaa-mme-kamer", "ref": "3.2.1", "from": "DAAA_CTR", "to": "LFMM_E_CTR",
+      "routes": ["R978", "UR978", "UM998", "UM508"], "cop": ["KAMER"],
+      "level": { "parity": "even" } },
+
+    { "id": "daaa-mme-reqin", "ref": "3.2.1", "from": "DAAA_CTR", "to": "LFMM_E_CTR",
+      "routes": ["G26", "UG26", "UM986"], "cop": ["REQIN"],
+      "level": { "parity": "even" } },
+
+    { "id": "daaa-mme-salma", "ref": "3.2.1", "from": "DAAA_CTR", "to": "LFMM_E_CTR",
+      "routes": ["G6", "UG6", "UN854"], "cop": ["SALMA"],
+      "level": { "parity": "even" } },
+
+    { "id": "daaa-mme-cirta", "ref": "3.2.1", "from": "DAAA_CTR", "to": "LFMM_E_CTR",
+      "routes": ["A605", "UA605", "UM2"], "cop": ["CIRTA"],
+      "level": { "parity": "even" } },
+
+    { "id": "daaa-mme-mouet", "ref": "3.2.1", "from": "DAAA_CTR", "to": "LFMM_E_CTR",
+      "routes": ["R34", "UR34"], "cop": ["MOUET"],
+      "level": { "parity": "even" } },
+
+    { "id": "mme-daaa-fra", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "DAAA_CTR",
+      "routes": ["FRA"],
+      "cop": ["OTARO", "DOLIS", "KAMER", "REQIN", "SALMA", "CIRTA", "MOUET"],
+      "level": { "parity": "odd" },
+      "note": "Free Route Airspace : tous les COP de l'interface sont utilisables en impair" },
+
+    { "id": "mme-daaa-reqin-m986", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "DAAA_CTR",
+      "routes": ["M986"], "cop": ["REQIN"],
+      "level": { "parity": "odd" } }
+  ],
+
+  "specialAreas": [],
+
+  "changelog": [
+    { "version": "v4.0", "date": "22/01/2026",
+      "changes": ["Nouveau format", "Conditions d'echange", "Espace LFMM ACC"] }
+  ]
+}

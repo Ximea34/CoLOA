@@ -1,0 +1,218 @@
+{
+  "meta": {
+    "source": "LoA-LECB-LFMM_EN v7.1 (15/06/2026)",
+    "scope": "Interface Barcelona ACC (LECB) <-> Marseille ACC (LFMM), Montpellier APP et Palma ACC (LECP). Sections 2.2, 2.3, 3.1, 3.2.1 a 3.2.6.",
+    "notScoped": "Section 2.1 (classification d'espace) non encodee.",
+    "conventions": [
+      "Les cles a l'interieur d'un bloc 'when' se combinent en ET logique : {dep:[...], arr:[...]} = departs de X a destination de Y.",
+      "'fl' = niveau exact impose, 'maxFl' = plafond, 'minFl' = plancher, 'parity' = regle semi-circulaire.",
+      "'when.depGroup' / 'when.arrGroup' renvoient au bloc 'groups' (3.2.1.2).",
+      "Cote LECB les regles portent LECB_CTR (secteur primaire regroupant E et W) ; LECB_E_CTR herite des memes conditions quand il est en ligne.",
+      "Le decoupage LFMM_W / LFMM_E par COP est deduit de la geographie : W pour les COP face a la Catalogne, E pour les COP face aux Baleares. La LoA ne l'attribue pas COP par COP."
+    ],
+    "disclaimer": "FOR SIMULATION USE ONLY - NOT VALID FOR REAL OPERATIONS"
+  },
+
+  "stations": {
+    "LECB_CTR":    { "freq": "124.450", "name": "Barcelona Control", "fallback": [],
+                     "note": "SFC-FL660, regroupe E et W" },
+    "LECB_E_CTR":  { "freq": "135.355", "name": "Barcelona Control (E)", "fallback": ["LECB_CTR"],
+                     "note": "SFC-FL660. Si LECB_E (resp. LECB_W) est en ligne, LECB_CTR est responsable de l'espace LECB_W (resp. LECB_E)" },
+    "LECB_W_CTR":  { "freq": "134.680", "name": "Barcelona Control (W)", "fallback": ["LECB_CTR"],
+                     "note": "Gere l'espace de Barcelona APP quand celui-ci n'est pas en ligne (2.2.3)" },
+    "LEBL_T1_APP": { "freq": "131.125", "name": "Barcelona Approach (T1)", "fallback": ["LECB_W_CTR", "LECB_CTR"],
+                     "note": "SFC-FL195. Gere tout l'espace de Barcelona APP quand T2 n'est pas ouvert" },
+    "LEBL_T2_APP": { "freq": "121.155", "name": "Barcelona Approach (T2)", "fallback": ["LEBL_T1_APP", "LECB_W_CTR", "LECB_CTR"],
+                     "note": "SFC-FL195" },
+    "LECP_CTR":    { "freq": null, "name": "Palma Control", "fallback": ["LECB_CTR"],
+                     "note": "Frequence non fournie par cette LoA : sections 3.2.3 et 3.2.4 seulement" },
+    "LFMM_CTR":    { "freq": "128.850", "name": "Marseille Control", "fallback": [],
+                     "note": "Secteur primaire, regroupe E et W" },
+    "LFMM_E_CTR":  { "freq": "127.905", "name": "Marseille Control (East)", "fallback": ["LFMM_CTR"] },
+    "LFMM_W_CTR":  { "freq": "132.635", "name": "Marseille Control (West)", "fallback": ["LFMM_CTR"],
+                     "note": "Frequence 132.635 selon cette LoA ; les LoA LFBB-LFMM v7.1 et LFFF-LFMM v7.0 indiquent 132.365 - divergence a arbitrer" },
+    "LFMT_APP":    { "freq": "131.055", "name": "Montpellier Approach", "fallback": ["LFMM_W_CTR", "LFMM_CTR"] }
+  },
+
+  "groups": {
+    "Nice": ["LFMN", "LFMD", "LFTZ", "LFMF"],
+    "Barcelona": ["LEBL", "LEDA", "LERS", "LELL"],
+    "Montpellier": ["LFMT", "LFMU", "LFNG"],
+    "Provence": ["LFML", "LFMA", "LFMO", "LFMQ", "LFMV", "LFMY", "LFNE", "LFNF", "LFNT", "LFHO", "LFME", "LFMI", "LFMS", "LFTW"],
+    "Toulon": ["LFTH", "LFMC", "LFTF"]
+  },
+
+  "defaults": {
+    "general": [
+      "Le trafic est repute maintenir le niveau coordonne au COP sauf condition de montee/descente explicite (3.1).",
+      "Toute deviation (COP, route, FL) impose une approval request (3.1).",
+      "Les trafics sont transferes des que possible, degages de tout conflit, au plus tard 10 NM avant la limite (3.1).",
+      "Silent handover possible a 10 NM, obligatoire si separation longitudinale < 20 NM (3.1)."
+    ]
+  },
+
+  "rules": [
+
+    { "id": "lecb-mmw-kanig", "ref": "3.2.1", "from": "LECB_CTR", "to": "LFMM_W_CTR",
+      "routes": ["N855", "A27"], "cop": ["KANIG"],
+      "when": { "rflBelow": 185 },
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LEGE"] }, "level": { "fl": 130 }, "seeAlso": "3.2.1.1" }
+      ] },
+
+    { "id": "lecb-mmw-diber", "ref": "3.2.1", "from": "LECB_CTR", "to": "LFMM_W_CTR",
+      "routes": ["N870", "UN870", "L110", "FRA"], "cop": ["DIBER"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arrGroup": ["Nice"] }, "level": { "fl": 340 } },
+        { "when": { "depGroup": ["Barcelona"] }, "level": { "fl": 300 } },
+        { "when": { "arrGroup": ["Montpellier", "Provence", "Toulon"] }, "level": { "fl": 300 } },
+        { "when": { "dep": ["LEGE"] }, "level": { "fl": 280 } }
+      ] },
+
+    { "id": "lecb-mmw-lumas", "ref": "3.2.1", "from": "LECB_CTR", "to": "LFMM_W_CTR",
+      "routes": ["M985", "N853", "FRA"], "cop": ["LUMAS"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "arrGroup": ["Montpellier", "Provence", "Toulon", "Nice"] }, "level": { "fl": 300 } }
+      ] },
+
+    { "id": "lecb-mmw-ospok", "ref": "3.2.1", "from": "LECB_CTR", "to": "LFMM_W_CTR",
+      "routes": ["N725", "FRA"], "cop": ["OSPOK"],
+      "level": { "parity": "even" } },
+
+    { "id": "lecb-mme-ister-morss", "ref": "3.2.1", "from": "LECB_CTR", "to": "LFMM_E_CTR",
+      "routes": ["N851", "UN851", "M603", "FRA"], "cop": ["ISTER", "MORSS"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LEPA"] }, "level": { "fl": 340 } }
+      ],
+      "verify": "Attribution LFMM_E deduite de la geographie (face aux Baleares) : a confirmer." },
+
+    { "id": "lecb-mme-sotax", "ref": "3.2.1", "from": "LECB_CTR", "to": "LFMM_E_CTR",
+      "routes": ["UM871", "FRA"], "cop": ["SOTAX"],
+      "level": { "parity": "even" },
+      "verify": "Attribution LFMM_E deduite de la geographie : a confirmer." },
+
+    { "id": "mmw-lecb-alber", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LECB_CTR",
+      "routes": ["B384"], "cop": ["ALBER"],
+      "level": { "parity": "odd" },
+      "seeAlso": "3.2.2.1" },
+
+    { "id": "mmw-lecb-kanig", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LECB_CTR",
+      "routes": ["A27", "N855"], "cop": ["KANIG"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LEGE"] }, "level": { "fl": 120 } }
+      ],
+      "seeAlso": "3.2.2.1" },
+
+    { "id": "mmw-lecb-mames", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LECB_CTR",
+      "routes": ["G7", "N86", "UM984", "UN975", "FRA"], "cop": ["MAMES"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LERS", "LEDA"] }, "level": { "fl": 290 } },
+        { "when": { "arr": ["LEBL", "LELL"] }, "level": { "fl": 270 } },
+        { "when": { "arr": ["LEGE"] }, "level": { "fl": 150 } }
+      ] },
+
+    { "id": "mmw-lecb-nildu", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LECB_CTR",
+      "routes": ["UN975", "FRA"], "cop": ["NILDU"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LERS", "LEDA"] }, "level": { "fl": 290 } },
+        { "when": { "arr": ["LEBL", "LELL"] }, "level": { "fl": 270 } }
+      ] },
+
+    { "id": "mmw-lecb-vatir", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LECB_CTR",
+      "routes": ["UN852", "UY38", "FRA"], "cop": ["VATIR"],
+      "level": { "parity": "odd" } },
+
+    { "id": "mmw-lecb-muren", "ref": "3.2.2", "from": "LFMM_W_CTR", "to": "LECB_CTR",
+      "routes": ["M601", "FRA"], "cop": ["MUREN"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LEBL", "LEGE", "LELL", "LEDA", "LFMP"] }, "level": { "fl": 290 }, "seeAlso": "3.2.2.2" }
+      ] },
+
+    { "id": "mme-lecb-soras", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LECB_CTR",
+      "routes": ["FRA"], "cop": ["SORAS"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LEIB"] }, "level": { "fl": 330 } }
+      ],
+      "verify": "Attribution LFMM_E deduite de la geographie : a confirmer." },
+
+    { "id": "mme-lecb-morss", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LECB_CTR",
+      "routes": ["M603", "FRA"], "cop": ["MORSS"],
+      "level": { "parity": "odd" },
+      "seeAlso": "3.2.2.3" },
+
+    { "id": "mme-lecb-sotax", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LECB_CTR",
+      "routes": ["FRA"], "cop": ["SOTAX"],
+      "level": { "parity": "odd" } },
+
+    { "id": "mme-lecb-ister", "ref": "3.2.2", "from": "LFMM_E_CTR", "to": "LECB_CTR",
+      "routes": ["FRA"], "cop": ["ISTER"],
+      "level": { "parity": "odd" },
+      "seeAlso": "3.2.2.3" },
+
+    { "id": "lecp-mme-ister-morss", "ref": "3.2.3", "from": "LECP_CTR", "to": "LFMM_E_CTR",
+      "routes": ["MHN-ISTER-LUNOR", "MHN-MORSS-RIPAL"], "cop": ["ISTER", "MORSS"],
+      "level": { "parity": "even" },
+      "exceptions": [
+        { "when": { "dep": ["LEMH"] }, "level": { "fl": 180 } }
+      ] },
+
+    { "id": "mme-lecp-rixot", "ref": "3.2.4", "from": "LFMM_E_CTR", "to": "LECP_CTR",
+      "routes": ["BALEN-MAXOS-RIXOT"], "cop": ["RIXOT"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LEIB", "LEPA"] }, "level": { "fl": 230 } },
+        { "when": { "arr": ["LEMH"] }, "level": { "fl": 190 } }
+      ] },
+
+    { "id": "mme-lecp-morss", "ref": "3.2.4", "from": "LFMM_E_CTR", "to": "LECP_CTR",
+      "routes": ["RIPAL-MORSS-MHN"], "cop": ["MORSS"],
+      "level": { "parity": "odd" },
+      "exceptions": [
+        { "when": { "arr": ["LEPA"] }, "level": { "fl": 230 } },
+        { "when": { "arr": ["LEMH"] }, "level": { "fl": 190 } }
+      ] },
+
+    { "id": "lecb-lfmt-kanig", "ref": "3.2.5", "from": "LECB_CTR", "to": "LFMT_APP",
+      "routes": ["A27 BGR-KANIG-PPG"], "cop": ["KANIG"],
+      "level": { "parity": "even", "maxFl": 100 } },
+
+    { "id": "lfmt-lecb-kanig", "ref": "3.2.6", "from": "LFMT_APP", "to": "LECB_CTR",
+      "routes": ["A27 PPG-KANIG-BGR"], "cop": ["KANIG"],
+      "level": { "parity": "odd", "maxFl": 110 } },
+
+    { "id": "lfmt-lecb-alber", "ref": "3.2.6", "from": "LFMT_APP", "to": "LECB_CTR",
+      "routes": ["B384 PPG-ALBER-GIR"], "cop": ["ALBER"],
+      "level": { "parity": "odd", "maxFl": 110 } },
+
+    { "id": "lfmt-lecb-bgr-sid", "ref": "3.2.6", "from": "LFMT_APP", "to": "LECB_CTR",
+      "routes": ["SID BGR4S", "SID BGR4N"], "cop": ["FIR boundary"],
+      "when": { "dep": ["LFMP"] },
+      "level": { "fl": 110 } }
+  ],
+
+  "notes": {
+    "3.2.1.1": "DEP LEGE avec RFL < 185. Ces trafics doivent croiser KANIG a FL125 ou au-dessus. Si impossible, LECB ACC coordonne avec LFMT APP et informe LFMM ACC.",
+    "3.2.1.2": "Definition des groupes d'aerodromes : voir le bloc 'groups'.",
+    "3.2.2.1": "Les trafics en montee via ALBER ou KANIG avec RFL > 195 ne sont pas transferes par Marseille ACC a Barcelona avant la limite de secteur, pour eviter une penetration dans l'espace de Bordeaux ACC.",
+    "3.2.2.2": "Ces trafics doivent etre stabilises par ELVOP.",
+    "3.2.2.3": "Marseille ACC est responsable de la separation entre les trafics convergeant vers MHN depuis ISTER et MORSS."
+  },
+
+  "specialAreas": [],
+
+  "changelog": [
+    { "version": "v7.0", "date": "20/04/2026",
+      "changes": ["Nouveau format", "Conditions d'echange", "Espace LFMM ACC"] },
+    { "version": "v7.1", "date": "15/06/2026",
+      "changes": ["Creation de LECB_CTR et LFMM_CTR"] }
+  ]
+}

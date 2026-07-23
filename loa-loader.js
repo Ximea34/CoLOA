@@ -7,9 +7,12 @@
 // Regles de fusion :
 //   - id de regle : prefixe automatique par le nom du fichier (ex. "lfbb:acc-xxx"),
 //     pour ne pas imposer une unicite globale entre documents rediges independamment.
-//   - stations : premiere valeur chargee gagne (ordre alphabetique des fichiers).
-//     Toute collision (meme id de station, valeurs differentes entre deux fichiers)
-//     est signalee dans "warnings" — jamais fusionnee en silence.
+//   - stations : le fichier marque "meta": {"primary": true} (notre propre LOA)
+//     est toujours fusionne en premier, avant les autres tries par ordre
+//     alphabetique. En cas de collision, c'est donc toujours lui qui fait
+//     autorite — jamais un fichier externe qui gagnerait par hasard de tri.
+//     Toute collision (meme id de station, valeurs differentes entre deux
+//     fichiers) est signalee dans "warnings" — jamais fusionnee en silence.
 //   - JSON invalide : le fichier fautif est ignore, l'erreur est signalee dans
 //     "errors". Un seul fichier corrompu ne doit pas faire tomber les autres.
 
@@ -27,32 +30,40 @@ function loadAll(dir) {
     return result;
   }
 
+  // Premiere passe : parser chaque fichier isolement, pour qu'un JSON invalide
+  // n'empeche pas de lire les autres ni de determiner qui est prioritaire.
+  const parsed = [];
   for (const file of files) {
     const fileKey = path.basename(file, ".json");
     const full = path.join(dir, file);
-
-    let doc;
     try {
       // Node ne retire pas le BOM UTF-8 tout seul ; frequent sur des fichiers
       // enregistres avec le Bloc-notes ou d'autres editeurs Windows.
       let raw = fs.readFileSync(full, "utf8");
       if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
-      doc = JSON.parse(raw);
+      parsed.push({ fileKey, doc: JSON.parse(raw) });
     } catch (e) {
       result.errors.push(`${file} : JSON invalide — ${e.message}`);
-      continue;
     }
+  }
 
+  // Tri stable : le(s) fichier(s) primary passent devant, l'ordre
+  // alphabetique des autres est conserve.
+  parsed.sort((a, b) => (b.doc.meta?.primary ? 1 : 0) - (a.doc.meta?.primary ? 1 : 0));
+
+  const stationSource = {}; // id de station -> fichier dont la valeur est conservee
+
+  for (const { fileKey, doc } of parsed) {
     result.sources.push(fileKey);
     if (doc.meta) result.meta.push({ file: fileKey, ...doc.meta });
 
     for (const [id, station] of Object.entries(doc.stations || {})) {
       if (!(id in result.stations)) {
         result.stations[id] = station;
+        stationSource[id] = fileKey;
       } else if (JSON.stringify(result.stations[id]) !== JSON.stringify(station)) {
         result.warnings.push(
-          `Station "${id}" definie differemment dans ${fileKey} — valeur de ` +
-          `"${result.sources[0]}" ou d'un fichier precedent conservee.`
+          `Station "${id}" definie differemment dans ${fileKey} — valeur de "${stationSource[id]}" conservee.`
         );
       }
       // Valeurs identiques dans deux fichiers : reference partagee normale, pas un conflit.
