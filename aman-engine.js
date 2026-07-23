@@ -212,13 +212,37 @@ function computeSequence({ airport, runwayConfig, traffic, config, pointStates, 
       gate: ac.gate,
       currentPoint: ac.currentPoint,
       eta: secondsToHhmm(ac.etaSec),
+      etaSeconds: ac.etaSec,
       sta: secondsToHhmm(sta),
+      staSeconds: sta,
       ttlSeconds,
       status: statusFor(ttlSeconds),
     };
   });
 
-  return { airport, runwayConfig, sequence, pointStates: nextStates, error: null };
+  // Vue par porte, avant fusion sur la piste : chaque avion reste dans la
+  // colonne de sa propre porte, triee par ETA. Pas de cascade de separation
+  // ici (le moteur ne modelise pas d'attente/hippodrome par porte, juste un
+  // flux continu vers le seuil) — seule la sequence fusionnee ci-dessus a
+  // une vraie STA/TTL. Sert a l'affichage "avant fusion" de la frise AMAN.
+  const byGate = new Map();
+  for (const ac of candidates) {
+    if (!byGate.has(ac.gate)) byGate.set(ac.gate, []);
+    byGate.get(ac.gate).push(ac);
+  }
+  const gateLanes = [...byGate.entries()].map(([gate, list]) => ({
+    gate,
+    sequence: list.map((ac, i) => ({
+      position: i + 1,
+      callsign: ac.callsign,
+      wake: ac.wake,
+      currentPoint: ac.currentPoint,
+      eta: secondsToHhmm(ac.etaSec),
+      etaSeconds: ac.etaSec,
+    })),
+  }));
+
+  return { airport, runwayConfig, sequence, gates: gateLanes, pointStates: nextStates, error: null };
 }
 
 module.exports = { computeSequence, gatesFor, haversineNm, secondsToHhmm };

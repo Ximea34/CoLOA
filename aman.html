@@ -25,11 +25,15 @@
   </label>
   <button type="submit" id="go">Actualiser</button>
   <span class="grow"></span>
+  <label class="zoom-label">Zoom
+    <input type="range" id="zoom" min="20" max="90" value="45" step="5">
+  </label>
   <button type="button" id="timeToggle" class="ghost">UTC</button>
 </form>
 
-<div class="aman-result" id="result">
-  <p class="empty">Renseigne un aéroport, puis Actualiser.</p>
+<div class="aman-ladder" id="ladder">
+  <p class="empty" id="ladderEmpty">Renseigne un aéroport, puis Actualiser.</p>
+  <div class="lanes" id="lanes" hidden></div>
 </div>
 
 <script src="aman-renderer.js"></script>

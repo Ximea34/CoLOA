@@ -1,17 +1,21 @@
-// aman-renderer.js — formulaire + timeline AMAN.
+// aman-renderer.js — formulaire + frise chronologique (ladder) AMAN.
 // Interroge aman:compute a la demande (bouton) puis toutes les 8s tant que la
 // fenetre reste ouverte sur les memes parametres.
 
 const el = (id) => document.getElementById(id);
 const form = el("form");
-const result = el("result");
+const ladderEmpty = el("ladderEmpty");
+const lanes = el("lanes");
 const runwaySelect = el("runwayConfig");
 const timeToggle = el("timeToggle");
+const zoomInput = el("zoom");
 
 let useLocal = false;
 let lastParams = null;
 let lastResult = null;
 let refreshTimer = null;
+let minutesVisible = Number(zoomInput.value); // fenetre de temps visible sur la frise
+const LOOKBACK_MIN = 5; // marge avant "maintenant", pour garder un peu de contexte passe
 
 // Connexion Aurora centralisee dans la fenetre de base : ici on n'affiche
 // que l'etat, en lecture seule.
@@ -30,6 +34,11 @@ if (mode !== "docked") {
 timeToggle.addEventListener("click", () => {
   useLocal = !useLocal;
   timeToggle.textContent = useLocal ? "Local" : "UTC";
+  if (lastResult) render(lastResult);
+});
+
+zoomInput.addEventListener("input", () => {
+  minutesVisible = Number(zoomInput.value);
   if (lastResult) render(lastResult);
 });
 
@@ -76,85 +85,159 @@ async function refresh() {
 }
 
 function showEmpty(text) {
-  result.innerHTML = "";
-  const p = document.createElement("p");
-  p.className = "empty";
-  p.textContent = text;
-  result.append(p);
+  lanes.hidden = true;
+  lanes.innerHTML = "";
+  ladderEmpty.hidden = false;
+  ladderEmpty.textContent = text;
 }
 
-// L'ETO/STA Aurora est en HHMM UTC. En mode local, on ne convertit que
-// l'affichage — jamais la donnee elle-meme.
-function formatTime(hhmm) {
-  if (!hhmm) return "—";
-  if (!useLocal) return `${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}Z`;
-  const h = Number(hhmm.slice(0, 2));
-  const m = Number(hhmm.slice(2, 4));
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h, m));
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+// etaSeconds/staSeconds sont de vraies secondes epoch (calculees cote
+// moteur) — jamais de reformatage approximatif d'une chaine HHMM ici.
+function formatTime(seconds) {
+  if (seconds == null) return "—";
+  const d = new Date(seconds * 1000);
+  return useLocal
+    ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : `${d.toISOString().slice(11, 16)}Z`;
 }
 
-function formatTtl(sec) {
-  const sign = sec > 0 ? "+" : sec < 0 ? "−" : "";
-  const abs = Math.abs(sec);
-  const m = Math.floor(abs / 60);
-  const s = abs % 60;
-  return `${sign}${m}:${String(s).padStart(2, "0")}`;
-}
-
-function cell(text) {
-  const c = document.createElement("span");
-  c.textContent = text;
-  return c;
+function formatDelay(ttlSeconds) {
+  const m = Math.round(ttlSeconds / 60);
+  if (m <= 0) return "0";
+  return `+${m}`;
 }
 
 function render(r) {
-  result.innerHTML = "";
-
   if (r.error) {
     showEmpty(r.error);
     return;
   }
 
-  if (!r.sequence || !r.sequence.length) {
+  const anyAircraft = (r.sequence || []).length > 0;
+  if (!anyAircraft) {
     showEmpty("Aucun trafic IFR en approche pour l'instant sur cette piste.");
     return;
   }
 
-  const section = document.createElement("div");
-  section.className = "gate";
+  ladderEmpty.hidden = true;
+  lanes.hidden = false;
+  lanes.innerHTML = "";
 
-  const h = document.createElement("div");
-  h.className = "gate-title";
-  h.textContent = `Piste ${r.runwayConfig}`;
-  section.append(h);
+  const nowSec = Date.now() / 1000;
+  const windowStart = nowSec - LOOKBACK_MIN * 60;
 
-  const table = document.createElement("div");
-  table.className = "gate-table";
+  const laneEls = [];
+  (r.gates || []).forEach((g) => laneEls.push(buildLane(g.gate, g.sequence, "eta")));
+  laneEls.push(buildLane(`Piste ${r.runwayConfig}`, r.sequence, "sta", true));
+  laneEls.forEach((l) => lanes.append(l.root));
+
+  // La hauteur n'est connue qu'une fois les colonnes dans le DOM (flex) —
+  // toutes les colonnes partagent la meme hauteur, une seule mesure suffit.
+  const bodyHeight = laneEls[0].body.clientHeight || 1;
+  const pxPerMinute = bodyHeight / minutesVisible;
+  const timeToY = (seconds) => ((seconds - windowStart) / 60) * pxPerMinute;
+
+  laneEls.forEach((l) => fillLane(l, timeToY, bodyHeight));
+}
+
+function buildLane(title, sequence, timeField, isFinal) {
+  const root = document.createElement("div");
+  root.className = "lane" + (isFinal ? " lane-final" : "");
 
   const head = document.createElement("div");
-  head.className = "gate-row gate-head";
-  ["#", "Indicatif", "WTC", "Porte", "Point", "ETA", "STA", "TTL/TTG"].forEach((t) => head.append(cell(t)));
-  table.append(head);
+  head.className = "lane-head";
+  head.textContent = title;
 
-  r.sequence.forEach((ac) => {
+  const body = document.createElement("div");
+  body.className = "lane-body";
+
+  root.append(head, body);
+  return { root, body, sequence, timeField, isFinal };
+}
+
+const ROW_H = 22; // hauteur d'une etiquette + marge, pour l'empilage anti-chevauchement
+const RULER_W = 46;
+const LABEL_X = 62; // bord gauche des etiquettes (voir .ac-row dans aman.css)
+
+function fillLane({ body, sequence, timeField, isFinal }, timeToY, bodyHeight) {
+  const nowSec = Date.now() / 1000;
+  const windowStart = nowSec - LOOKBACK_MIN * 60;
+
+  const ruler = document.createElement("div");
+  ruler.className = "ruler";
+  body.append(ruler);
+
+  // Graduations toutes les 5 minutes sur la fenetre visible.
+  const firstTick = Math.ceil(windowStart / 300) * 300;
+  for (let t = firstTick; t <= windowStart + minutesVisible * 60; t += 300) {
+    const y = timeToY(t);
+    if (y < 0 || y > bodyHeight) continue;
+    const tick = document.createElement("div");
+    tick.className = "tick";
+    tick.style.top = `${y}px`;
+    const label = document.createElement("span");
+    label.className = "tick-label";
+    label.textContent = formatTime(t);
+    tick.append(label);
+    body.append(tick);
+  }
+
+  const nowLine = document.createElement("div");
+  nowLine.className = "now-line";
+  nowLine.style.top = `${timeToY(nowSec)}px`;
+  body.append(nowLine);
+
+  // Empilage : les etiquettes suivent l'ordre temporel mais sont poussees
+  // vers le bas si elles chevaucheraient la precedente. Le trait de rappel
+  // relie chaque etiquette a sa position temporelle exacte sur la regle.
+  const visible = sequence
+    .map((ac) => ({ ac, timeY: timeToY(timeField === "sta" ? ac.staSeconds : ac.etaSeconds) }))
+    .filter(({ timeY }) => timeY >= -10 && timeY <= bodyHeight + 10)
+    .sort((a, b) => a.timeY - b.timeY);
+
+  let prevLabelY = -Infinity;
+  for (const item of visible) {
+    item.labelY = Math.max(item.timeY, prevLabelY + ROW_H);
+    prevLabelY = item.labelY;
+  }
+
+  for (const { ac, timeY, labelY } of visible) {
+    // Point sur la regle a l'heure exacte.
+    const dot = document.createElement("div");
+    dot.className = "leader-dot";
+    dot.style.top = `${timeY}px`;
+    body.append(dot);
+
+    // Trait de rappel incline entre la regle et l'etiquette.
+    const dx = LABEL_X - RULER_W;
+    const dy = labelY - timeY;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+    const leader = document.createElement("div");
+    leader.className = "leader";
+    leader.style.top = `${timeY}px`;
+    leader.style.width = `${len}px`;
+    leader.style.transform = `rotate(${angle}rad)`;
+    body.append(leader);
+
     const row = document.createElement("div");
-    row.className = "gate-row";
-    row.dataset.status = ac.status;
-    row.append(
-      cell(ac.position),
-      cell(ac.callsign),
-      cell(ac.wake),
-      cell(ac.gate),
-      cell(ac.currentPoint),
-      cell(formatTime(ac.eta)),
-      cell(formatTime(ac.sta)),
-      cell(formatTtl(ac.ttlSeconds))
-    );
-    table.append(row);
-  });
+    row.className = "ac-row";
+    if (ac.status) row.dataset.status = ac.status;
+    row.style.top = `${labelY}px`;
 
-  section.append(table);
-  result.append(section);
+    row.append(span("pos", ac.position), span("callsign", ac.callsign), span("wake", ac.wake));
+    if (isFinal) {
+      row.append(span("time", `${formatDelay(ac.ttlSeconds)} ${formatTime(ac.staSeconds)}`));
+    } else {
+      row.append(span("time", formatTime(ac.etaSeconds)));
+    }
+    body.append(row);
+  }
+}
+
+function span(cls, text) {
+  const s = document.createElement("span");
+  s.className = cls;
+  s.textContent = text;
+  return s;
 }
