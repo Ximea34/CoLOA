@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+<title>Debug — Assistant LoA</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="debug.css">
+</head>
+<body class="debug-body">
+
+<div class="debug-bar">
+  <div class="debug-filters">
+    <button class="filter active" data-filter="all">Tout</button>
+    <button class="filter" data-filter="tcp">TCP</button>
+    <button class="filter" data-filter="engine">Moteur</button>
+    <button class="filter" data-filter="err">Erreurs</button>
+  </div>
+  <label class="autoscroll"><input type="checkbox" id="autoscroll" checked> Défilement auto</label>
+  <span class="grow"></span>
+  <button id="clear" class="ghost">Vider</button>
+</div>
+
+<div class="debug-log" id="log">
+  <p class="debug-empty">En attente d'evenements...</p>
+</div>
+
+<script src="debug-renderer.js"></script>
+</body>
+</html>
