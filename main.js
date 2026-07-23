@@ -1,10 +1,16 @@
 // main.js — processus principal.
 // Il detient la connexion Aurora et le moteur ; la fenetre ne fait qu'afficher.
 //
-// Regle : toutes les commandes passent par la macro %SELTFC%. Cette application
-// ne regarde que l'avion selectionne, et Aurora refuse les commandes portant un
-// indicatif explicite ("@ERR ... Unknown command"). C'est aussi exactement ce
-// que faisait la sonde, qui fonctionnait.
+// Mode mono-avion (tick/buildRow) : passe par la macro %SELTFC%, qui suit
+// l'avion selectionne dans Aurora.
+//
+// Mode balayage (scanLoop/scanOnce) : interroge chaque avion par son indicatif
+// explicite (#TRPOS;CALLSIGN, #FP;CALLSIGN, #TRPATHA;CALLSIGN). On avait cru
+// au debut du projet qu'Aurora rejetait tout indicatif explicite (d'ou la
+// macro %SELTFC%) — reteste en session, ca fonctionne en realite pour ces
+// commandes sur un avion non selectionne. Seul #TRPOS;%SELTFC% pose un
+// probleme a part : il fait fermer la socket quand rien n'est selectionne
+// (voir le commentaire dans tick()).
 
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
@@ -16,6 +22,10 @@ const REFRESH_MS = 6000;    // rafraichissement de l'avion courant
 const ATC_MS = 30000;       // liste des ATC en ligne
 const BACKOFF_MAX = 6;      // echecs consecutifs avant temporisation maximale
 const RECONNECT_MS = 4000;
+
+const TR_REFRESH_MS = 15000;      // rafraichissement de la liste des trafics visibles
+const FP_TTL_MS = 5 * 60 * 1000;  // duree de vie du cache plan de vol/route par indicatif
+const SCAN_PAUSE_MS = 500;        // pause entre deux tours de balayage complets
 
 let win = null;
 let aurora = null;
@@ -29,6 +39,23 @@ let failures = 0;
 let wanted = false;         // l'utilisateur veut-il etre connecte
 let timers = [];
 let reconnectTimer = null;
+
+// --- balayage global (mode alternatif au mono-avion) ------------------------
+// L'utilisateur peut basculer entre "je regarde l'avion selectionne" (mode
+// historique) et "je surveille en continu tout ce que j'assume, et je ne vois
+// que les ecarts". Les deux modes sont mutuellement exclusifs et partagent la
+// meme socket Aurora sequentielle — jamais de requetes en parallele.
+
+let scanMode = false;
+let scanStop = true;
+let scanRunning = false;
+const trafficCache = new Map(); // indicatif -> { fp, path, fpAt }
+let trList = [];
+let trFetchedAt = 0;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // --- fenetre de debug ---------------------------------------------------------
 // Journal en anneau des echanges TCP et des decisions du moteur, independant du
@@ -136,12 +163,13 @@ async function connect() {
   failures = 0;
   debugPush("info", "app", `Connecte, station ${myStation}`);
   send("status", { state: "connected", station: myStation });
-  startTimers();
+  if (scanMode) startScan(); else startTimers();
 }
 
 // Fermeture inattendue : on retente, au lieu de declarer forfait.
 function onDisconnected() {
   stopTimers();
+  stopScan();
   aurora = null;
   debugPush("info", "app", "Deconnecte");
   if (!wanted) return send("status", { state: "idle" });
@@ -155,6 +183,7 @@ function disconnect() {
   wanted = false;
   clearTimeout(reconnectTimer);
   stopTimers();
+  stopScan();
   if (aurora) { try { aurora.disconnect(); } catch {} }
   aurora = null;
   myStation = null;
@@ -180,6 +209,108 @@ function stopTimers() {
   timers.forEach(clearInterval);
   timers = [];
   busy = false;
+}
+
+// --- boucle de balayage ------------------------------------------------------
+
+function startScan() {
+  scanStop = false;
+  trafficCache.clear();
+  trList = [];
+  trFetchedAt = 0;
+  scanLoop();
+}
+
+function stopScan() {
+  scanStop = true;
+}
+
+async function scanLoop() {
+  if (scanRunning) return; // deja en cours, ne pas empiler un second tour
+  scanRunning = true;
+  try {
+    while (!scanStop && aurora) {
+      await scanOnce();
+      await sleep(SCAN_PAUSE_MS);
+    }
+  } finally {
+    scanRunning = false;
+  }
+}
+
+async function scanOnce() {
+  if (Date.now() - trFetchedAt > TR_REFRESH_MS) {
+    const list = await aurora.request("#TR").catch((e) => {
+      debugPush("err", "engine", `#TR refuse : ${e.message}`);
+      return null;
+    });
+    if (Array.isArray(list)) {
+      trList = list;
+      trFetchedAt = Date.now();
+      for (const cs of [...trafficCache.keys()]) {
+        if (!trList.includes(cs)) trafficCache.delete(cs); // plus visible : hors cache
+      }
+    }
+  }
+
+  const flagged = [];
+
+  for (const callsign of trList) {
+    if (scanStop || !aurora) break;
+
+    let entry = trafficCache.get(callsign);
+    if (!entry || Date.now() - entry.fpAt > FP_TTL_MS) {
+      // #FP et #TRPATHA changent rarement : mis en cache, pas redemandes a
+      // chaque tour (contrairement a #TRPOS, sondee systematiquement).
+      const [fpRes, pathRes] = await Promise.allSettled([
+        aurora.request(`#FP;${callsign}`),
+        aurora.request(`#TRPATHA;${callsign}`),
+      ]);
+      if (fpRes.status !== "fulfilled") {
+        debugPush("err", "engine", `${callsign} : #FP refuse en balayage (${fpRes.reason.message})`);
+        continue;
+      }
+      const fp = fpRes.value;
+      const routePath = pathRes.status === "fulfilled"
+        ? pathRes.value.path
+        : fixesFromRoute(fp.route).map((fix) => ({ fix, eto: null }));
+      entry = { fp, path: routePath, fpAt: Date.now() };
+      trafficCache.set(callsign, entry);
+    }
+
+    const pos = await aurora.request(`#TRPOS;${callsign}`).catch((e) => {
+      debugPush("err", "engine", `${callsign} : #TRPOS refuse en balayage (${e.message})`);
+      return null;
+    });
+    if (!pos || pos.assumedBy !== myStation) continue; // pas a moi : ignore mais reste en cache
+
+    const result = evaluate({ myStation, fp: entry.fp, pos, path: entry.path, onlineATC });
+    const hasGap = result.matched && (
+      result.labelCheck === "mismatch" ||
+      result.labelCheck === "empty" ||
+      result.warnings.length > 0
+    );
+    if (hasGap) {
+      flagged.push({ ...result, at: Date.now() });
+      // Une ligne resume par avion en ecart, pas la trace complete etape par
+      // etape (deja bruyante pour un seul avion, ca noierait le journal
+      // multiplie par tous les avions assumes a chaque tour).
+      debugPush("info", "engine", `${callsign} : ecart (${result.labelCheck || "avertissement"}) — ${result.ref}`);
+    }
+  }
+
+  send("scanRows", { rows: flagged });
+}
+
+function setScanMode(active) {
+  if (scanMode === active) return;
+  scanMode = active;
+  if (aurora) {
+    if (scanMode) { stopTimers(); startScan(); }
+    else { stopScan(); startTimers(); }
+  }
+  debugPush("info", "app", `Mode balayage ${scanMode ? "active" : "desactive"}`);
+  send("scanMode", { active: scanMode });
 }
 
 async function refreshATC() {
@@ -295,6 +426,7 @@ async function buildRow(expectedCallsign, knownPos) {
 
 ipcMain.on("connect", connect);
 ipcMain.on("disconnect", disconnect);
+ipcMain.on("scan:toggle", () => setScanMode(!scanMode));
 
 ipcMain.on("window", (_e, action) => {
   if (!win) return;

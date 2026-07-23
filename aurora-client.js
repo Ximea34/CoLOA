@@ -100,6 +100,7 @@ const PARSERS = {
   "#TRPOS": parseTRPOS,
   "#TRPATHL": parseTRPATHL,
   "#TRPATHA": parseTRPATHL, // meme format FIX:ETO, inclut aussi les points survoles (ETO "-")
+  "#TR": (f) => f.filter(Boolean), // liste brute des indicatifs visibles
   "#ATC": parseATC,
   "#ATCT": parseATC,
   "#CONN": (f) => ({ callsign: f[0] }),

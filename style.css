@@ -244,3 +244,4 @@ body {
 }
 .ghost:hover { color: var(--accent); background: var(--surface-2); }
 .ghost:focus-visible { outline: 1px solid var(--accent); }
+.ghost[data-active="true"] { color: var(--accent); background: var(--accent-dim); }

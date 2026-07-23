@@ -8,10 +8,13 @@ contextBridge.exposeInMainWorld("loa", {
   disconnect: () => ipcRenderer.send("disconnect"),
   window: (action) => ipcRenderer.send("window", action),
   openDebug: () => ipcRenderer.send("debug:open"),
+  toggleScan: () => ipcRenderer.send("scan:toggle"),
   onStatus: (cb) => ipcRenderer.on("status", (_e, data) => cb(data)),
   onRow: (cb) => ipcRenderer.on("row", (_e, data) => cb(data)),
   onAtc: (cb) => ipcRenderer.on("atc", (_e, data) => cb(data)),
   onSelection: (cb) => ipcRenderer.on("selection", (_e, data) => cb(data)),
   onTrouble: (cb) => ipcRenderer.on("trouble", (_e, data) => cb(data)),
   onPinned: (cb) => ipcRenderer.on("pinned", (_e, data) => cb(data)),
+  onScanMode: (cb) => ipcRenderer.on("scanMode", (_e, data) => cb(data)),
+  onScanRows: (cb) => ipcRenderer.on("scanRows", (_e, data) => cb(data)),
 });

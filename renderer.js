@@ -6,6 +6,7 @@ const rows = el("rows");
 const MAX_ROWS = 60;
 
 let connected = false;
+let scanActive = false;
 
 // --- barre de titre et etat -------------------------------------------------
 
@@ -23,6 +24,28 @@ el("clear").addEventListener("click", () => {
   showEmpty("Historique vidé. Sélectionne un avion dans Aurora.");
 });
 el("debug").addEventListener("click", () => window.loa.openDebug());
+el("scan").addEventListener("click", () => window.loa.toggleScan());
+
+window.loa.onScanMode((d) => {
+  scanActive = d.active;
+  el("scan").dataset.active = String(scanActive);
+  rows.innerHTML = "";
+  showEmpty(
+    scanActive
+      ? "Balayage actif — surveillance des trafics assumés, aucun écart pour l'instant."
+      : "Sélectionne un avion dans Aurora."
+  );
+});
+
+window.loa.onScanRows(({ rows: flaggedRows }) => {
+  if (!scanActive) return;
+  rows.innerHTML = "";
+  if (!flaggedRows.length) {
+    showEmpty("Balayage actif — aucun écart détecté.");
+    return;
+  }
+  flaggedRows.forEach((r) => rows.append(buildRow(r, false)));
+});
 
 window.loa.onStatus((s) => {
   el("dot").dataset.state = s.state;
@@ -76,6 +99,7 @@ window.loa.onAtc((d) => {
 // --- lignes -----------------------------------------------------------------
 
 window.loa.onRow(({ row, mode }) => {
+  if (scanActive) return; // mode balayage : ce canal ne devrait pas parler, garde defensive
   const existing = rows.querySelector(`[data-cs="${cssEscape(row.callsign)}"]`);
 
   if (mode === "update" && existing) {
