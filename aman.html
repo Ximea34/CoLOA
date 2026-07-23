@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+<title>AMAN — Assistant LoA</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="aman.css">
+</head>
+<body class="aman-body">
+
+<div class="aman-connect">
+  <button id="connect" class="connect">Connect to Aurora</button>
+  <span class="dot" id="dot"></span>
+  <span id="state">Hors ligne</span>
+</div>
+
+<form class="aman-form" id="form">
+  <label>Aéroport
+    <input type="text" id="airport" maxlength="4" placeholder="LFML" autocomplete="off">
+  </label>
+  <label>Config piste
+    <select id="runwayConfig"><option value="">—</option></select>
+  </label>
+  <button type="submit" id="go">Actualiser</button>
+  <span class="grow"></span>
+  <button type="button" id="timeToggle" class="ghost">UTC</button>
+</form>
+
+<div class="aman-result" id="result">
+  <p class="empty">Renseigne un aéroport, puis Actualiser.</p>
+</div>
+
+<script src="aman-renderer.js"></script>
+</body>
+</html>

@@ -46,19 +46,20 @@ function parseStarFile(text) {
   return stars;
 }
 
-// Map "AEROPORT|POINT_ENTREE" -> [{ cop, runways, starName }]. Dedoublonne
-// par cop : si deux configs de piste menent au meme point final, une seule
-// entree (les listes de pistes sont juste concatenees a titre indicatif).
-function loadStars(dir) {
-  const map = new Map();
-
+// Lit tous les STAR/*.str et retourne la liste brute de STAR parsees, tous
+// aeroports confondus : [{ airport, runways, name, fixes }]. Base commune a
+// loadStars() (correspondance entree->COP pour l'inference LOA) et a
+// loadRawStars() (portes/IAF par config piste pour l'AMAN) — un seul endroit
+// qui lit le disque et parse.
+function readAllStars(dir) {
   let files;
   try {
     files = fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".str"));
   } catch {
-    return map;
+    return [];
   }
 
+  const stars = [];
   for (const file of files) {
     let text;
     try {
@@ -66,22 +67,31 @@ function loadStars(dir) {
     } catch {
       continue;
     }
+    stars.push(...parseStarFile(text));
+  }
+  return stars;
+}
 
-    for (const star of parseStarFile(text)) {
-      const entry = star.fixes[0];
-      const cop = star.fixes[star.fixes.length - 1];
-      if (!entry || !cop || entry === cop) continue;
+// Map "AEROPORT|POINT_ENTREE" -> [{ cop, runways, starName }]. Dedoublonne
+// par cop : si deux configs de piste menent au meme point final, une seule
+// entree (les listes de pistes sont juste concatenees a titre indicatif).
+function loadStars(dir) {
+  const map = new Map();
 
-      const key = `${star.airport}|${entry}`;
-      if (!map.has(key)) map.set(key, []);
-      const list = map.get(key);
+  for (const star of readAllStars(dir)) {
+    const entry = star.fixes[0];
+    const cop = star.fixes[star.fixes.length - 1];
+    if (!entry || !cop || entry === cop) continue;
 
-      const existing = list.find((e) => e.cop === cop);
-      if (existing) {
-        if (!existing.runways.includes(star.runways)) existing.runways += `, ${star.runways}`;
-      } else {
-        list.push({ cop, runways: star.runways, starName: star.name });
-      }
+    const key = `${star.airport}|${entry}`;
+    if (!map.has(key)) map.set(key, []);
+    const list = map.get(key);
+
+    const existing = list.find((e) => e.cop === cop);
+    if (existing) {
+      if (!existing.runways.includes(star.runways)) existing.runways += `, ${star.runways}`;
+    } else {
+      list.push({ cop, runways: star.runways, starName: star.name });
     }
   }
   return map;
@@ -92,4 +102,10 @@ function resolveStarCop(starDb, airport, entryFix) {
   return starDb.get(`${airport}|${entryFix}`) || [];
 }
 
-module.exports = { loadStars, resolveStarCop, parseStarFile };
+// Liste brute (non reduite a une map) pour l'AMAN : besoin du detail complet
+// par config piste, pas seulement de la correspondance entree->COP.
+function loadRawStars(dir) {
+  return readAllStars(dir);
+}
+
+module.exports = { loadStars, resolveStarCop, loadRawStars, parseStarFile };

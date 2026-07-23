@@ -16,6 +16,8 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const { AuroraClient } = require("./aurora-client");
 const { evaluate, fixesFromRoute, DB } = require("./loa-engine");
+const { computeSequence } = require("./aman-engine");
+const { loadAmanConfig } = require("./aman-config-loader");
 
 const POLL_MS = 1500;       // detection du changement de selection
 const REFRESH_MS = 6000;    // rafraichissement de l'avion courant
@@ -40,11 +42,13 @@ let wanted = false;         // l'utilisateur veut-il etre connecte
 let timers = [];
 let reconnectTimer = null;
 
-// --- balayage global (mode alternatif au mono-avion) ------------------------
+// --- cache trafic partage (balayage global + AMAN) --------------------------
 // L'utilisateur peut basculer entre "je regarde l'avion selectionne" (mode
 // historique) et "je surveille en continu tout ce que j'assume, et je ne vois
-// que les ecarts". Les deux modes sont mutuellement exclusifs et partagent la
-// meme socket Aurora sequentielle — jamais de requetes en parallele.
+// que les ecarts" (balayage). L'AMAN a besoin de la meme donnee (plan de vol
+// et route de chaque avion visible) pour sequencer les arrivees. Un seul
+// cache, alimente par une seule boucle sequentielle, consomme par les deux —
+// jamais deux boucles qui interrogeraient Aurora en parallele (socket unique).
 
 let scanMode = false;
 let scanStop = true;
@@ -52,6 +56,25 @@ let scanRunning = false;
 const trafficCache = new Map(); // indicatif -> { fp, path, fpAt }
 let trList = [];
 let trFetchedAt = 0;
+
+// La boucle de cache tourne des qu'elle sert a quelque chose : le mode
+// balayage (affichage) ou la fenetre AMAN ouverte (sequencement).
+function cacheNeeded() {
+  return scanMode || (amanWin && !amanWin.isDestroyed());
+}
+
+function syncCacheLoop() {
+  if (!aurora) return;
+  if (cacheNeeded()) {
+    if (scanStop) {
+      scanStop = false;
+      trFetchedAt = 0; // force un rafraichissement immediat de #TR au demarrage
+      scanLoop();
+    }
+  } else {
+    scanStop = true;
+  }
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -121,6 +144,51 @@ function createManuelWindow() {
   manuelWin.on("closed", () => { manuelWin = null; });
 }
 
+// AMAN : consomme le cache trafic partage (voir syncCacheLoop) — ne demarre
+// jamais sa propre boucle de sondage Aurora.
+let amanWin = null;
+
+function createAmanWindow() {
+  if (amanWin && !amanWin.isDestroyed()) {
+    amanWin.show();
+    amanWin.focus();
+    return;
+  }
+  amanWin = new BrowserWindow({
+    width: 900, height: 620, minWidth: 700, minHeight: 420,
+    backgroundColor: "#16181b",
+    title: "AMAN — Assistant LoA",
+    webPreferences: {
+      preload: path.join(__dirname, "aman-preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  amanWin.loadFile("aman.html");
+  amanWin.on("closed", () => { amanWin = null; syncCacheLoop(); });
+  syncCacheLoop();
+}
+
+// Ecran de lancement : premier point d'entree de l'app, choix entre
+// l'assistant LoA et l'AMAN.
+let launcherWin = null;
+
+function createLauncherWindow() {
+  launcherWin = new BrowserWindow({
+    width: 420, height: 300,
+    resizable: false,
+    backgroundColor: "#16181b",
+    title: "Assistant LoA",
+    webPreferences: {
+      preload: path.join(__dirname, "launcher-preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  launcherWin.loadFile("launcher.html");
+  launcherWin.on("closed", () => { launcherWin = null; });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 940, height: 580, minWidth: 660, minHeight: 320,
@@ -136,8 +204,14 @@ function createWindow() {
   win.on("closed", () => { win = null; });
 }
 
+// Diffuse a toutes les fenetres qui peuvent ecouter (LoA + AMAN, l'AMAN
+// pouvant se connecter seul sans jamais ouvrir la fenetre LoA). Chaque
+// fenetre n'ecoute que les canaux exposes par son propre preload — recevoir
+// un canal non ecoute ne fait rien, diffuser partout est sans risque.
 function send(channel, payload) {
-  if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+  for (const w of [win, amanWin]) {
+    if (w && !w.isDestroyed()) w.webContents.send(channel, payload);
+  }
 }
 
 let lastReport = 0;
@@ -188,13 +262,14 @@ async function connect() {
   failures = 0;
   debugPush("info", "app", `Connecte, station ${myStation}`);
   send("status", { state: "connected", station: myStation });
-  if (scanMode) startScan(); else startTimers();
+  if (!scanMode) startTimers();
+  syncCacheLoop();
 }
 
 // Fermeture inattendue : on retente, au lieu de declarer forfait.
 function onDisconnected() {
   stopTimers();
-  stopScan();
+  scanStop = true;
   aurora = null;
   debugPush("info", "app", "Deconnecte");
   if (!wanted) return send("status", { state: "idle" });
@@ -208,7 +283,7 @@ function disconnect() {
   wanted = false;
   clearTimeout(reconnectTimer);
   stopTimers();
-  stopScan();
+  scanStop = true;
   if (aurora) { try { aurora.disconnect(); } catch {} }
   aurora = null;
   myStation = null;
@@ -236,19 +311,7 @@ function stopTimers() {
   busy = false;
 }
 
-// --- boucle de balayage ------------------------------------------------------
-
-function startScan() {
-  scanStop = false;
-  trafficCache.clear();
-  trList = [];
-  trFetchedAt = 0;
-  scanLoop();
-}
-
-function stopScan() {
-  scanStop = true;
-}
+// --- boucle de cache trafic ---------------------------------------------------
 
 async function scanLoop() {
   if (scanRunning) return; // deja en cours, ne pas empiler un second tour
@@ -324,15 +387,17 @@ async function scanOnce() {
     }
   }
 
-  send("scanRows", { rows: flagged });
+  // La boucle tourne aussi pour l'AMAN seul (scanMode eteint) : dans ce cas on
+  // alimente le cache mais on n'envoie pas la vue balayage au rendu principal.
+  if (scanMode) send("scanRows", { rows: flagged });
 }
 
 function setScanMode(active) {
   if (scanMode === active) return;
   scanMode = active;
   if (aurora) {
-    if (scanMode) { stopTimers(); startScan(); }
-    else { stopScan(); startTimers(); }
+    if (scanMode) stopTimers(); else startTimers();
+    syncCacheLoop();
   }
   debugPush("info", "app", `Mode balayage ${scanMode ? "active" : "desactive"}`);
   send("scanMode", { active: scanMode });
@@ -468,6 +533,25 @@ ipcMain.handle("manuel:evaluate", (_e, { dep, arr, waypoint, sector }) => {
   return evaluate({ myStation: mySector, fp, pos: {}, path, onlineATC: [] });
 });
 
+ipcMain.on("aman:open", createAmanWindow);
+ipcMain.handle("aman:config", (_e, airport) => {
+  const icao = String(airport || "").toUpperCase();
+  const { config, error } = loadAmanConfig(path.join(__dirname, "AMAN"), icao);
+  return { runwayConfigs: config?.runwayConfigs || [], error: config ? null : error };
+});
+ipcMain.handle("aman:compute", (_e, { airport, runwayConfig }) => {
+  const icao = String(airport || "").toUpperCase();
+  const { config, error } = loadAmanConfig(path.join(__dirname, "AMAN"), icao);
+  if (!config) return { airport: icao, runwayConfig, gates: [], error };
+
+  const traffic = [...trafficCache.entries()].map(([callsign, entry]) => ({
+    callsign,
+    fp: entry.fp,
+    path: entry.path,
+  }));
+  return computeSequence({ airport: icao, runwayConfig, traffic, config });
+});
+
 ipcMain.on("window", (_e, action) => {
   if (!win) return;
   if (action === "minimize") win.minimize();
@@ -483,12 +567,21 @@ ipcMain.on("window", (_e, action) => {
 ipcMain.on("debug:open", createDebugWindow);
 ipcMain.on("debug:clear", () => { debugLog = []; });
 
+ipcMain.on("launch:loa", () => {
+  if (launcherWin && !launcherWin.isDestroyed()) launcherWin.close();
+  createWindow();
+});
+ipcMain.on("launch:aman", () => {
+  if (launcherWin && !launcherWin.isDestroyed()) launcherWin.close();
+  createAmanWindow();
+});
+
 // Chargement des fichiers LOA (loa/*.json) : jamais silencieux, meme si le
 // reste de l'app fonctionne avec les fichiers valides restants.
 (DB.errors || []).forEach((e) => { console.error("[loa]", e); debugPush("err", "app", e); });
 (DB.warnings || []).forEach((w) => { console.warn("[loa]", w); debugPush("info", "app", w); });
 debugPush("info", "app", `LOA chargees : ${(DB.sources || []).join(", ") || "aucune"} (${DB.rules.length} regles)`);
 
-app.whenReady().then(createWindow);
+app.whenReady().then(createLauncherWindow);
 app.on("window-all-closed", () => { wanted = false; stopTimers(); app.quit(); });
-app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createLauncherWindow(); });
