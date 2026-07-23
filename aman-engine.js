@@ -83,6 +83,7 @@ function computeSequence({ airport, runwayConfig, traffic, config }) {
 
   for (const ac of traffic || []) {
     if (!ac.fp || ac.fp.arr !== airport) continue;
+    if (ac.fp.rules !== "I") continue; // AMAN v1 : IFR uniquement, quel que soit l'assumed
     const fixes = (ac.path || []).map((p) => (typeof p === "string" ? p : p.fix));
 
     for (const gate of gates.keys()) {
