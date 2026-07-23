@@ -219,6 +219,19 @@ function resolveStation(target, onlineATC, myStation) {
 // (ex. mmw-brusc, sans "when" du tout) remonter par coincidence de COP,
 // masquant la regle interne pourtant seule pertinente pour ce controleur.
 
+// Normalise un "from"/"myStation" en secteur Marseille ("LFMM_W"/"LFMM_E"),
+// en tolerant que les fichiers LOA ecrivent le nom complet de la station
+// (ex. "LFMM_W_CTR") au lieu de l'abreviation attendue par convention. Toute
+// autre valeur (LSAG, DAAA_CTR, LIRR_NE_CTR...) est laissee telle quelle —
+// elle ne doit jamais etre confondue avec un secteur Marseille, sinon on
+// recree le bug des regles de reception d'une autre FIR qui matchaient a tort.
+function sectorOf(station) {
+  const s = String(station || "");
+  if (s.startsWith("LFMM_W")) return "LFMM_W";
+  if (s.startsWith("LFMM_E")) return "LFMM_E";
+  return s;
+}
+
 // Aerodromes dont l'approche est geree par un secteur donne : derive des
 // regles "acc-*" elles-memes (from: secteur, to: *_APP) plutot que code en
 // dur, pour rester a jour si de nouvelles arrivees sont ajoutees a la LOA.
@@ -226,8 +239,9 @@ function computeHomeAirports(rules) {
   const bySector = new Map();
   for (const rule of rules) {
     if (!/_APP$/.test(rule.to || "")) continue;
-    if (!bySector.has(rule.from)) bySector.set(rule.from, new Set());
-    const set = bySector.get(rule.from);
+    const sector = sectorOf(rule.from);
+    if (!bySector.has(sector)) bySector.set(sector, new Set());
+    const set = bySector.get(sector);
     for (const a of rule.when?.arr || []) set.add(a);
   }
   return bySector;
@@ -250,7 +264,7 @@ function classify(fp, mySector) {
 function arrivalCandidates(rules, mySector, fp, fixes) {
   const destRules = rules.filter(
     (rule) =>
-      rule.from === mySector &&
+      sectorOf(rule.from) === mySector &&
       /_APP$/.test(rule.to || "") &&
       (rule.when?.arr || []).includes(fp.arr)
   );
@@ -307,7 +321,7 @@ function arrivalCandidates(rules, mySector, fp, fixes) {
 function exitCandidates(rules, mySector, fixes) {
   const candidates = [];
   for (const rule of rules) {
-    if (rule.from !== mySector) continue;
+    if (sectorOf(rule.from) !== mySector) continue;
     // Les regles "to: *_APP" sont des transferts d'arrivee (Regles 1/3) —
     // jamais un COP de sortie vers un autre secteur/FIR (Regles 2/4).
     if (/_APP$/.test(rule.to || "")) continue;
@@ -329,6 +343,10 @@ function exitCandidates(rules, mySector, fixes) {
 function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
   const fixes = path.map((p) => (typeof p === "string" ? p : p.fix));
   const rfl = toFL(fp.cruiseLevel);
+  // myStation (ex. LFMM_MM_OBS en observateur) doit rester permissif : tout
+  // ce qui n'est pas explicitement LFMM_E retombe sur LFMM_W, contrairement a
+  // sectorOf() qui elle reste stricte pour rule.from (jamais confondre une
+  // FIR etrangere avec mon propre secteur).
   const mySector = myStation.startsWith("LFMM_E") ? "LFMM_E" : "LFMM_W";
 
   const kind = classify(fp, mySector);

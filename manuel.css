@@ -1,0 +1,120 @@
+/* manuel.css — s'appuie sur les variables de style.css (theme, couleurs). */
+
+.manuel-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.manuel-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.manuel-form input {
+  font: inherit;
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  width: 110px;
+  text-transform: uppercase;
+}
+.manuel-form input:focus-visible { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+.sector-toggle { display: flex; gap: 4px; }
+.sector {
+  font: inherit;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.sector:hover { color: var(--text); }
+.sector.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+#go {
+  font: inherit;
+  font-size: 12px;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+#go:hover { background: var(--accent); color: #0e1013; }
+
+.manuel-result {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.empty { color: var(--text-faint); font-size: 13px; }
+
+.card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+.card.ok { border-left-color: transparent; }
+.card.warn { border-left-color: var(--warn); }
+.card.err { border-left-color: var(--err); }
+.card.none { border-left-color: var(--text-faint); }
+
+.field-line {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.field-line .field-label {
+  width: 130px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-top: 2px;
+}
+.field-line .field-value {
+  font-family: var(--font-data);
+  color: var(--text);
+}
+.field-line .field-value.accent { color: var(--accent); }
+
+.hint { margin-top: 8px; font-size: 12px; color: var(--text-faint); }
+
+.block { margin-top: 10px; }
+.block-title {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+.block p { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); }
+.block.bad p { color: var(--err); }
+
+.note {
+  margin-top: 14px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-style: italic;
+}

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("loa", {
   window: (action) => ipcRenderer.send("window", action),
   openDebug: () => ipcRenderer.send("debug:open"),
   toggleScan: () => ipcRenderer.send("scan:toggle"),
+  openManuel: () => ipcRenderer.send("manuel:open"),
   onStatus: (cb) => ipcRenderer.on("status", (_e, data) => cb(data)),
   onRow: (cb) => ipcRenderer.on("row", (_e, data) => cb(data)),
   onAtc: (cb) => ipcRenderer.on("atc", (_e, data) => cb(data)),

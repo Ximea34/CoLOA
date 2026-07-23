@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+<title>Consultation manuelle — Assistant LoA</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="manuel.css">
+</head>
+<body class="manuel-body">
+
+<form class="manuel-form" id="form">
+  <label>Départ
+    <input type="text" id="dep" maxlength="4" placeholder="LFML" autocomplete="off">
+  </label>
+  <label>Arrivée
+    <input type="text" id="arr" maxlength="4" placeholder="LSGG" autocomplete="off">
+  </label>
+  <label>Point d'entrée/sortie de secteur (optionnel)
+    <input type="text" id="waypoint" maxlength="12" placeholder="ABLAK" autocomplete="off">
+  </label>
+
+  <div class="sector-toggle">
+    <button type="button" id="secW" class="sector">LFMM_W</button>
+    <button type="button" id="secE" class="sector">LFMM_E</button>
+  </div>
+
+  <button type="submit" id="go">Rechercher</button>
+</form>
+
+<div class="manuel-result" id="result">
+  <p class="empty">Renseigne un départ et une arrivée, puis Rechercher.</p>
+</div>
+
+<script src="manuel-renderer.js"></script>
+</body>
+</html>

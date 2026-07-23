@@ -25,6 +25,7 @@ el("clear").addEventListener("click", () => {
 });
 el("debug").addEventListener("click", () => window.loa.openDebug());
 el("scan").addEventListener("click", () => window.loa.toggleScan());
+el("manuel").addEventListener("click", () => window.loa.openManuel());
 
 window.loa.onScanMode((d) => {
   scanActive = d.active;

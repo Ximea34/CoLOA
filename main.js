@@ -96,6 +96,31 @@ function createDebugWindow() {
   debugWin.on("closed", () => { debugWin = null; });
 }
 
+// Consultation manuelle : fonctionne sans Aurora, aucune dependance a `aurora`
+// ou `myStation` — l'utilisateur fournit lui-meme dep/arr/secteur.
+let manuelWin = null;
+
+function createManuelWindow() {
+  if (manuelWin && !manuelWin.isDestroyed()) {
+    manuelWin.show();
+    manuelWin.focus();
+    return;
+  }
+  manuelWin = new BrowserWindow({
+    width: 640, height: 560, minWidth: 480, minHeight: 400,
+    parent: win || undefined,
+    backgroundColor: "#16181b",
+    title: "Consultation manuelle — Assistant LoA",
+    webPreferences: {
+      preload: path.join(__dirname, "manuel-preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  manuelWin.loadFile("manuel.html");
+  manuelWin.on("closed", () => { manuelWin = null; });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 940, height: 580, minWidth: 660, minHeight: 320,
@@ -427,6 +452,21 @@ async function buildRow(expectedCallsign, knownPos) {
 ipcMain.on("connect", connect);
 ipcMain.on("disconnect", disconnect);
 ipcMain.on("scan:toggle", () => setScanMode(!scanMode));
+
+ipcMain.on("manuel:open", createManuelWindow);
+ipcMain.handle("manuel:evaluate", (_e, { dep, arr, waypoint, sector }) => {
+  const mySector = sector === "LFMM_E" ? "LFMM_E_CTR" : "LFMM_W_CTR";
+  const fp = {
+    callsign: "MANUEL",
+    dep: (dep || "").toUpperCase(),
+    arr: (arr || "").toUpperCase(),
+    aircraft: "?",
+    wake: "?",
+    cruiseLevel: null, // pas de RFL reel en mode manuel : niveau decrit en general
+  };
+  const path = waypoint ? [{ fix: waypoint.toUpperCase(), eto: null }] : [];
+  return evaluate({ myStation: mySector, fp, pos: {}, path, onlineATC: [] });
+});
 
 ipcMain.on("window", (_e, action) => {
   if (!win) return;
