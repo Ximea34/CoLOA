@@ -1,6 +1,6 @@
 {
   "name": "loa-assistant",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Assistant LOA temps reel pour IVAO Aurora - Marseille ACC",
   "main": "main.js",
   "scripts": {
