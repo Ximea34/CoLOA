@@ -8,10 +8,17 @@
 
 const path = require("path");
 const { loadAll } = require("./loa-loader");
-const { loadStars, resolveStarCop } = require("./star-loader");
+const { loadStars, resolveStarCop, loadRawStars } = require("./star-loader");
 
 const DB = loadAll(path.join(__dirname, "loa"));
 const STAR_DB = loadStars(path.join(__dirname, "STAR"));
+// Liste brute (non deduplicquee par COP), pour nommer la STAR reellement
+// concernee — contrairement a STAR_DB (voir loadStars), qui fusionne a
+// dessein deux variantes menant au meme COP final (utile pour deviner LE
+// COP a utiliser, pas pour savoir LAQUELLE des deux variantes s'applique).
+// Deux STAR peuvent tres bien partager entree ET COP final tout en servant
+// des pistes differentes (ex. LFLL LESPI9S/LESPI9N, toutes deux LESPI->TALAR).
+const RAW_STARS = loadRawStars(path.join(__dirname, "STAR"));
 
 // --- utilitaires -----------------------------------------------------------
 
@@ -56,6 +63,17 @@ function whenMatches(when, fp) {
   if (when.arr && !when.arr.includes(fp.arr)) return false;
   if (when.dep && !when.dep.includes(fp.dep)) return false;
   return true;
+}
+
+// Points de la route restante, hors aeroport d'arrivee et hors points sans
+// nom : Aurora (#TRPATHA) transmet parfois un point de virage non nomme
+// (ex. sur une STAR) comme un "fix" vide ou blanc, jamais filtre par
+// parseTRPATHL (qui ne rejette que les tokens vraiment vides, pas les
+// chaines blanches). Sans ce filtre, le "dernier point connu" de la route
+// peut tomber sur ce blanc plutot que sur le vrai dernier fixe nomme —
+// utilise pour l'inference de COP via STAR et pour identifier la STAR.
+function enrouteFixes(fixes, arr) {
+  return fixes.filter((f) => f && f.trim() && f !== arr);
 }
 
 // --- resolution du niveau --------------------------------------------------
@@ -258,10 +276,69 @@ function classify(fp, mySector) {
   return "transit";
 }
 
+// Est-ce que deux champs "runways" (ex. "13L:13R", eventuellement des
+// tokens dans un ordre ou groupement different) partagent au moins une
+// piste ? Comparaison par ensemble plutot que par egalite de chaine — les
+// STAR d'un meme aeroport ne notent pas toujours leurs pistes groupees a
+// l'identique.
+function runwaysOverlap(a, b) {
+  const setA = a.split(":").map((s) => s.trim()).filter(Boolean);
+  const setB = b.split(":").map((s) => s.trim()).filter(Boolean);
+  return setA.some((r) => setB.includes(r));
+}
+
+// Nom(s) de la STAR a afficher : toujours derive du DERNIER point connu sur
+// la route restante (lastFix), jamais du COP retenu par la regle — une STAR
+// se reconnait a son point d'ENTREE, pas a son point de sortie, et le COP
+// choisi par la regle peut tres bien etre un point d'entree "en direct" (ex.
+// FJR sur LFML) plutot que le COP reel de la STAR. Interroge RAW_STARS (non
+// deduplique) et non STAR_DB : deux variantes peuvent partager entree ET COP
+// final tout en servant des pistes differentes (ex. LFLL LESPI9S/LESPI9N,
+// toutes deux LESPI->TALAR) — STAR_DB les aurait fusionnees en une seule,
+// perdant la distinction justement necessaire ici. Meme mecanique de
+// desambiguisation par piste active que l'inference de COP : si des
+// doublons subsistent (aucune piste configuree, ou piste configuree mais
+// les deux STAR restent compatibles), on les liste tous plutot que d'en
+// choisir un au hasard.
+function starsForLastFix(airport, lastFix, activeRunway, trace) {
+  if (!lastFix) {
+    trace?.push("STAR : aucun point nomme sur la route restante — rien a chercher");
+    return null;
+  }
+
+  let matches = RAW_STARS.filter((s) => s.airport === airport && s.fixes.length > 1 && s.fixes[0] === lastFix)
+    .map((s) => ({ starName: s.name, runways: s.runways }));
+  if (!matches.length) {
+    trace?.push(`STAR : dernier point connu ${lastFix} — aucune STAR ${airport} ne debute par ce point`);
+    return null;
+  }
+
+  if (activeRunway && matches.length > 1) {
+    const filtered = matches.filter((m) => runwaysOverlap(m.runways, activeRunway));
+    if (filtered.length) {
+      trace?.push(
+        `STAR : ${matches.length} candidate(s) sur ${lastFix} — filtre par piste active ${activeRunway} -> ${filtered.map((m) => m.starName).join(", ")}`
+      );
+      matches = filtered;
+    } else {
+      trace?.push(
+        `STAR : ${matches.length} candidate(s) sur ${lastFix} — aucune compatible avec la piste active ${activeRunway}, toutes conservees`
+      );
+    }
+  }
+
+  const names = [...new Set(matches.map((m) => m.starName))];
+  trace?.push(
+    `STAR : dernier point connu ${lastFix} -> ${names.join(", ")}` +
+    (names.length > 1 ? " (ambigu — configurer la piste active pour trancher)" : "")
+  );
+  return names.join(", ");
+}
+
 // Regles 1 & 3 : uniquement les regles acc-* de MON secteur pour CET
 // aeroport d'arrivee. Jamais une regle d'une autre FIR — structurellement
 // impossible ici, contrairement a l'ancien tri global.
-function arrivalCandidates(rules, mySector, fp, fixes) {
+function arrivalCandidates(rules, mySector, fp, fixes, activeRunway) {
   const destRules = rules.filter(
     (rule) =>
       sectorOf(rule.from) === mySector &&
@@ -286,15 +363,32 @@ function arrivalCandidates(rules, mySector, fp, fixes) {
   // candidats plutot que d'en deviner un — celui qui n'est pas choisi
   // apparait comme alternative.
   if (!candidates.length) {
-    const enroute = fixes.filter((f) => f !== fp.arr);
+    const enroute = enrouteFixes(fixes, fp.arr);
     const lastFix = enroute[enroute.length - 1];
-    for (const { cop, runways, starName } of resolveStarCop(STAR_DB, fp.arr, lastFix)) {
+    let starMatches = resolveStarCop(STAR_DB, fp.arr, lastFix);
+
+    // Piste en service configuree (menu Config, voir main.js activeRunways) :
+    // si plusieurs STAR partagent le meme point d'entree mais menent a des
+    // COP differents selon la config piste, on ne garde que celle(s)
+    // compatible(s) avec la piste active plutot que de laisser toutes les
+    // options comme candidats ambigus (comportement par defaut si aucune
+    // piste n'est configuree pour cet aeroport).
+    if (activeRunway && starMatches.length > 1) {
+      const filtered = starMatches.filter((m) => runwaysOverlap(m.runways, activeRunway));
+      if (filtered.length) starMatches = filtered;
+    }
+
+    for (const { cop, runways } of starMatches) {
       const owningRule = destRules.find((r) => (r.cop || []).includes(cop));
       if (!owningRule) continue; // COP reel pas encore code dans une regle : rien a afficher de fiable
       candidates.push({
         rule: owningRule, cop, tier: 1, index: enroute.length - 1,
         transferPoint: cop, entry: lastFix,
-        inferredVia: `${lastFix} → ${starName} (${runways})`,
+        // Pas de nom de STAR ici : starMatches vient de STAR_DB, qui fusionne
+        // a dessein deux variantes menant au meme COP (voir loadStars) — le
+        // nom fiable, sensible a la piste active, est dans le champ "star"
+        // separe (voir starsForLastFix), seule source a afficher a l'usager.
+        inferredVia: `${lastFix} → ${cop} (piste ${runways})`,
       });
     }
   }
@@ -340,7 +434,7 @@ function exitCandidates(rules, mySector, fixes) {
 
 // --- moteur ----------------------------------------------------------------
 
-function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
+function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [], activeRunways = {} }) {
   const fixes = path.map((p) => (typeof p === "string" ? p : p.fix));
   const rfl = toFL(fp.cruiseLevel);
   // myStation (ex. LFMM_MM_OBS en observateur) doit rester permissif : tout
@@ -351,7 +445,7 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
 
   const kind = classify(fp, mySector);
   const candidates = kind === "arrival"
-    ? arrivalCandidates(DB.rules, mySector, fp, fixes)
+    ? arrivalCandidates(DB.rules, mySector, fp, fixes, activeRunways[fp.arr])
     : exitCandidates(DB.rules, mySector, fixes);
 
   // Trace de decision : jamais utilise pour decider quoi que ce soit (ca
@@ -387,6 +481,12 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
   const best = candidates[0];
   const usedFallback = best.tier === 2;
   const rule = best.rule;
+
+  // Nom de la STAR a afficher : n'a de sens que pour une arrivee (SID/STAR
+  // n'existent pas pour les points de sortie). Voir starsForLastFix.
+  const star = kind === "arrival"
+    ? starsForLastFix(fp.arr, enrouteFixes(fixes, fp.arr).at(-1), activeRunways[fp.arr], trace)
+    : null;
 
   // Exceptions d'abord, defaut ensuite. L'exception complete la regle de base
   // (ex. un plafond qui vient s'ajouter a la parite), elle ne la remplace que
@@ -463,6 +563,7 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [] }) {
     currentAlt: pos.altitude ?? null,
     transferLevel: level.text,
     transferPoint: best.transferPoint,
+    star,
     pointUnverified: usedFallback,
     labelFL,
     labelCheck,

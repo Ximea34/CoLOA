@@ -97,6 +97,7 @@ function render(r) {
     fieldLine("Règle", `${r.ruleId} (${r.ref})`),
     fieldLine("Niveau", r.transferLevel, true),
     fieldLine("Point de transfert", r.pointUnverified ? "non identifié" : (r.transferPoint || "—")),
+    fieldLine("STAR", r.star || "—"),
     fieldLine("Next ATC", r.nextStation)
   );
   if (r.conditions.length) card.append(block("Conditions", r.conditions));

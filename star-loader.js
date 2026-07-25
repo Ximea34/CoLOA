@@ -89,7 +89,10 @@ function loadStars(dir) {
 
     const existing = list.find((e) => e.cop === cop);
     if (existing) {
-      if (!existing.runways.includes(star.runways)) existing.runways += `, ${star.runways}`;
+      // ":"-joint pour rester compatible avec runwaysOverlap (loa-engine.js),
+      // qui decoupe uniquement sur ":" — un separateur ", " y produirait des
+      // tokens illisibles (ex. "17R, 35L") et casserait le filtre par piste.
+      if (!existing.runways.includes(star.runways)) existing.runways += `:${star.runways}`;
     } else {
       list.push({ cop, runways: star.runways, starName: star.name });
     }
@@ -108,4 +111,20 @@ function loadRawStars(dir) {
   return readAllStars(dir);
 }
 
-module.exports = { loadStars, resolveStarCop, loadRawStars, parseStarFile };
+// Options de piste distinctes d'un aeroport (champ "runways" brut de chaque
+// STAR, ex. "13L:13R"), dans l'ordre d'apparition — sert a peupler le
+// selecteur de piste en service de l'assistant LoA (voir main.js
+// loa:getRunwayOptions). C'est aussi cette meme forme qui est comparee a la
+// piste active configuree au moment de l'inference (voir runwaysOverlap
+// dans loa-engine.js).
+function runwayOptions(dir, icao) {
+  const airport = String(icao || "").toUpperCase();
+  const seen = [];
+  for (const star of readAllStars(dir)) {
+    if (star.airport !== airport) continue;
+    if (!seen.includes(star.runways)) seen.push(star.runways);
+  }
+  return seen;
+}
+
+module.exports = { loadStars, resolveStarCop, loadRawStars, runwayOptions, parseStarFile };

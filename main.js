@@ -19,6 +19,7 @@ const { AuroraClient } = require("./aurora-client");
 const { evaluate, fixesFromRoute, DB } = require("./loa-engine");
 const { computeSequence, gatesFor } = require("./aman-engine");
 const { loadAmanConfig } = require("./aman-config-loader");
+const { runwayOptions } = require("./star-loader");
 const { currentSimPos, navigateProcedure, captureIls } = require("./sim-engine");
 
 const APP_ICON = path.join(__dirname, "assets", "icon.png");
@@ -46,6 +47,13 @@ let wanted = false;         // l'utilisateur veut-il etre connecte
 let timers = [];
 let reconnectTimer = null;
 let lastStatus = { state: "idle" }; // dernier statut connu, pour rattraper les cibles ouvertes apres coup
+
+// Piste en service par aeroport (menu Config de l'assistant LoA) : ICAO ->
+// champ "runways" choisi (ex. "13L:13R"). Sert uniquement a lever
+// l'ambiguite quand une STAR non encore franchie sur la route pourrait
+// mener a plusieurs COP differents selon la config piste (voir
+// arrivalCandidates dans loa-engine.js). En memoire seulement, pas persiste.
+const activeRunways = new Map();
 
 // --- cache trafic partage (balayage global + AMAN) --------------------------
 // L'utilisateur peut basculer entre "je regarde l'avion selectionne" (mode
@@ -505,7 +513,7 @@ async function scanOnce() {
 
     if (!pos || pos.assumedBy !== myStation) continue; // pas a moi : ignore le balayage, reste en cache
 
-    const result = evaluate({ myStation, fp: entry.fp, pos, path: entry.path, onlineATC });
+    const result = evaluate({ myStation, fp: entry.fp, pos, path: entry.path, onlineATC, activeRunways: Object.fromEntries(activeRunways) });
     const hasGap = result.matched && (
       result.labelCheck === "mismatch" ||
       result.labelCheck === "empty" ||
@@ -624,7 +632,7 @@ async function buildRow(expectedCallsign, knownPos) {
     debugPush("err", "engine", `${expectedCallsign} : #TRPATHA refuse (${pathRes.reason.message}), repli sur le plan de vol`);
   }
 
-  const result = evaluate({ myStation, fp, pos: knownPos, path, onlineATC });
+  const result = evaluate({ myStation, fp, pos: knownPos, path, onlineATC, activeRunways: Object.fromEntries(activeRunways) });
   if (degraded) result.conditions = [...(result.conditions || []), degraded];
 
   const fixList = path.map((p) => p.fix).join(" ") || "(vide)";
@@ -662,7 +670,29 @@ ipcMain.handle("manuel:evaluate", (_e, { dep, arr, waypoint, sector }) => {
     cruiseLevel: null, // pas de RFL reel en mode manuel : niveau decrit en general
   };
   const path = waypoint ? [{ fix: waypoint.toUpperCase(), eto: null }] : [];
-  return evaluate({ myStation: mySector, fp, pos: {}, path, onlineATC: [] });
+  const result = evaluate({ myStation: mySector, fp, pos: {}, path, onlineATC: [], activeRunways: Object.fromEntries(activeRunways) });
+
+  debugPush(
+    "info", "engine",
+    result.matched
+      ? `MANUEL ${fp.dep}->${fp.arr} : regle ${result.ruleId} (${result.ref}), COP ${result.transferPoint}${result.star ? `, STAR ${result.star}` : ""}`
+      : `MANUEL ${fp.dep}->${fp.arr} : Aucun COP`
+  );
+  for (const line of result.trace || []) debugPush("info", "engine", `MANUEL : ${line}`);
+
+  return result;
+});
+
+ipcMain.handle("loa:getRunwayOptions", (_e, icao) => {
+  return runwayOptions(path.join(__dirname, "STAR"), icao);
+});
+ipcMain.handle("loa:getActiveRunways", () => Object.fromEntries(activeRunways));
+ipcMain.handle("loa:setActiveRunway", (_e, { icao, runway }) => {
+  const key = String(icao || "").trim().toUpperCase();
+  if (!key) return Object.fromEntries(activeRunways);
+  if (runway) activeRunways.set(key, runway);
+  else activeRunways.delete(key);
+  return Object.fromEntries(activeRunways);
 });
 
 ipcMain.handle("aman:config", (_e, airport) => {
