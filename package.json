@@ -5,9 +5,25 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node test.js"
+    "test": "node test.js",
+    "dist": "electron-builder --win portable"
   },
   "devDependencies": {
-    "electron": "^43.2.0"
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.coloa.app",
+    "productName": "CoLOA",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "assets/icon.ico"
+    },
+    "portable": {
+      "artifactName": "CoLOA-${version}-portable.exe"
+    }
   }
 }
