@@ -9,6 +9,8 @@
 const path = require("path");
 const { loadAll } = require("./loa-loader");
 const { loadStars, resolveStarCop, loadRawStars } = require("./star-loader");
+const { loadNavPoints } = require("./navdata-loader");
+const { computeDescentPlan } = require("./descent-engine");
 
 const DB = loadAll(path.join(__dirname, "loa"));
 const STAR_DB = loadStars(path.join(__dirname, "STAR"));
@@ -19,6 +21,9 @@ const STAR_DB = loadStars(path.join(__dirname, "STAR"));
 // Deux STAR peuvent tres bien partager entree ET COP final tout en servant
 // des pistes differentes (ex. LFLL LESPI9S/LESPI9N, toutes deux LESPI->TALAR).
 const RAW_STARS = loadRawStars(path.join(__dirname, "STAR"));
+// Referentiel de points nommes (fixes RNAV + VOR + NDB), coordonnees reelles
+// — necessaire pour calculer une distance vers un COP (voir descent-engine.js).
+const NAV_POINTS = loadNavPoints(path.join(__dirname, "STAR"));
 
 // --- utilitaires -----------------------------------------------------------
 
@@ -113,7 +118,15 @@ function mergeLevel(base, override) {
   return merged;
 }
 
-function resolveLevel(spec, rfl) {
+// currentFl (optionnel) : niveau REEL actuel de l'avion (#TRPOS.altitude,
+// arrondi au multiple de 10 le plus proche), prioritaire sur le RFL depose
+// au plan de vol des qu'il est connu — un trafic deja en l'air peut avoir
+// devie de son plan (niveau intermediaire, reroute...), et proposer un
+// niveau proche de sa realite actuelle est plus actionnable pour le
+// controleur que proposer un niveau proche d'un plan potentiellement
+// perime. Repli sur le RFL uniquement si aucune position reelle n'est
+// connue (mode manuel, trafic pas encore visible).
+function resolveLevel(spec, rfl, currentFl) {
   const out = { text: "", fl: null, warnings: [] };
   if (!spec) return { ...out, text: "Non defini — coordination requise" };
 
@@ -140,32 +153,35 @@ function resolveLevel(spec, rfl) {
       !forbidden.includes(fl) &&
       (spec.maxFl === undefined || fl <= spec.maxFl);
 
-    if (rfl !== null && ok(rfl)) {
-      out.fl = rfl;
-      out.text = `FL${rfl} (RFL, niveau ${label} conforme)`;
-    } else if (rfl !== null) {
-      // Balayage de toute la bande utile : une fenetre autour du RFL ne suffit
-      // pas quand un plafond ramene le niveau tres en dessous (ex. RFL FL200
-      // avec un maximum a FL160).
+    const anchor = currentFl ?? rfl;
+    const anchorLabel = currentFl !== null && currentFl !== undefined ? "niveau actuel" : "RFL";
+
+    if (anchor !== null && ok(anchor)) {
+      out.fl = anchor;
+      out.text = `FL${anchor} (${anchorLabel}, niveau ${label} conforme)`;
+    } else if (anchor !== null) {
+      // Balayage de toute la bande utile : une fenetre autour de l'ancre ne
+      // suffit pas quand un plafond ramene le niveau tres en dessous (ex.
+      // niveau FL200 avec un maximum a FL160).
       const valid = [];
       for (let fl = 50; fl <= 450; fl += 10) if (ok(fl)) valid.push(fl);
       const options = valid
-        .sort((a, b) => Math.abs(a - rfl) - Math.abs(b - rfl))
+        .sort((a, b) => Math.abs(a - anchor) - Math.abs(b - anchor))
         .slice(0, 2)
         .sort((a, b) => a - b);
 
       // Motif exact du rejet, sinon on annonce un probleme de parite alors que
       // c'est le plafond ou un niveau interdit qui bloque.
       const reasons = [];
-      if (isOdd(rfl) !== wantOdd) reasons.push(`${label} exige`);
-      if (spec.maxFl !== undefined && rfl > spec.maxFl) reasons.push(`plafond FL${spec.maxFl}`);
-      if (forbidden.includes(rfl)) reasons.push("niveau interdit");
+      if (isOdd(anchor) !== wantOdd) reasons.push(`${label} exige`);
+      if (spec.maxFl !== undefined && anchor > spec.maxFl) reasons.push(`plafond FL${spec.maxFl}`);
+      if (forbidden.includes(anchor)) reasons.push("niveau interdit");
 
       out.fl = options[0] ?? null;
       out.text = options.length
         ? `Niveau ${label} requis — proposer ${options.map((f) => "FL" + f).join(" ou ")}`
         : `Niveau ${label} requis — aucun niveau conforme, coordination necessaire`;
-      out.warnings.push(`RFL FL${rfl} non conforme (${reasons.join(", ") || "hors LoA"})`);
+      out.warnings.push(`${anchorLabel === "RFL" ? "RFL" : "Niveau actuel"} FL${anchor} non conforme (${reasons.join(", ") || "hors LoA"})`);
     } else {
       out.text = `Niveau ${label}`;
     }
@@ -335,6 +351,89 @@ function starsForLastFix(airport, lastFix, activeRunway, trace) {
   return names.join(", ");
 }
 
+// Sequence complete des noms de points d'UNE STAR reliant precisement
+// `entry` a `cop` (les deux inclus) — contrairement a starsForLastFix (qui
+// ne renvoie qu'un nom a afficher), on a ici besoin de tous les points
+// intermediaires pour prolonger le calcul de distance au-dela du dernier
+// point connu sur la route. Meme desambiguisation par piste active.
+function starFixNamesFor(airport, entry, cop, activeRunway) {
+  let matches = RAW_STARS.filter(
+    (s) => s.airport === airport && s.fixes[0] === entry && s.fixes[s.fixes.length - 1] === cop
+  );
+  if (!matches.length) return null;
+  if (activeRunway && matches.length > 1) {
+    const filtered = matches.filter((m) => runwaysOverlap(m.runways, activeRunway));
+    if (filtered.length) matches = filtered;
+  }
+  return matches[0].fixes;
+}
+
+// Construit la chaine de points (nom + coordonnees) entre la position
+// actuelle et le COP inclus, puis calcule le plan de descente. Meme logique
+// de detection de direct et d'extension par STAR que le champ STAR
+// (starsForLastFix) — les deux doivent toujours raconter la meme histoire.
+// Un echec a n'importe quelle etape (COP non atteignable avec les points
+// connus) se traduit par points=[] plutot qu'un calcul sur une destination
+// tronquee : une distance/heure fausse est pire que rien du tout.
+function computeDescentInfo({ fp, fixes, pos, cop, targetFl, activeRunway, trace }) {
+  const fail = (msg) => {
+    trace?.push(`Descente : ${msg}`);
+    return computeDescentPlan(
+      { lat: pos.lat, lon: pos.lon, altitude: pos.altitude, groundSpeed: pos.groundSpeed, targetFl, points: [] },
+      trace
+    );
+  };
+
+  if (!cop) return fail("pas de COP identifie — calcul impossible");
+
+  const named = enrouteFixes(fixes, fp.arr);
+  const names = [];
+
+  // Direct actif : l'etiquette Aurora (wpLabel) affiche un point isole (pas
+  // d'espace) quand un controleur envoie un trafic direct sur un point —
+  // contrairement a un libelle de procedure (ex. "BODRU8A 04R", SID+piste),
+  // toujours en deux mots. On ne le retient que s'il correspond a un point
+  // reellement connu du referentiel — sinon ce n'est probablement pas un
+  // direct (ex. nom de STAR affiche sur l'etiquette en arrivee).
+  const label = String(pos.wpLabel || "").trim();
+  const isDirect = label && !label.includes(" ") && NAV_POINTS.has(label);
+
+  let startAt = 0;
+  if (isDirect) {
+    trace?.push(`Descente : direct actif vers ${label} (etiquette)`);
+    names.push(label);
+    const idx = named.indexOf(label);
+    startAt = idx === -1 ? named.length : idx + 1;
+  }
+
+  for (let i = startAt; i < named.length; i++) {
+    names.push(named[i]);
+    if (named[i] === cop) break;
+  }
+
+  if (names[names.length - 1] !== cop) {
+    // Le COP n'est pas encore visible sur la route (cas de l'inference via
+    // STAR, voir arrivalCandidates) : on prolonge avec la sequence complete
+    // de la STAR retenue, depuis le dernier point connu.
+    const entry = names[names.length - 1] || null;
+    const starFixes = entry ? starFixNamesFor(fp.arr, entry, cop, activeRunway) : null;
+    if (!starFixes) return fail(`suite de la route inconnue apres ${entry || "la position actuelle"} — COP non atteignable`);
+    names.push(...starFixes.slice(1));
+  }
+
+  const points = [];
+  for (const name of names) {
+    const coord = NAV_POINTS.get(name);
+    if (!coord) return fail(`point ${name} absent du referentiel de navigation — COP non atteignable`);
+    points.push({ name, lat: coord.lat, lon: coord.lon });
+  }
+
+  return computeDescentPlan(
+    { lat: pos.lat, lon: pos.lon, altitude: pos.altitude, groundSpeed: pos.groundSpeed, targetFl, points },
+    trace
+  );
+}
+
 // Regles 1 & 3 : uniquement les regles acc-* de MON secteur pour CET
 // aeroport d'arrivee. Jamais une regle d'une autre FIR — structurellement
 // impossible ici, contrairement a l'ancien tri global.
@@ -437,6 +536,9 @@ function exitCandidates(rules, mySector, fixes) {
 function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [], activeRunways = {} }) {
   const fixes = path.map((p) => (typeof p === "string" ? p : p.fix));
   const rfl = toFL(fp.cruiseLevel);
+  // Niveau reel arrondi au FL le plus proche (ex. 30850ft -> FL310) — voir
+  // resolveLevel, qui le prefere au RFL depose des qu'il est connu.
+  const currentFl = Number.isFinite(pos.altitude) ? Math.round(pos.altitude / 1000) * 10 : null;
   // myStation (ex. LFMM_MM_OBS en observateur) doit rester permissif : tout
   // ce qui n'est pas explicitement LFMM_E retombe sur LFMM_W, contrairement a
   // sectorOf() qui elle reste stricte pour rule.from (jamais confondre une
@@ -493,7 +595,7 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [], activeRu
   // sur les champs qu'elle precise explicitement.
   const exception = (rule.exceptions || []).find((e) => whenMatches(e.when, fp));
   const levelSpec = exception ? mergeLevel(rule.level, exception.level) : rule.level;
-  const level = resolveLevel(levelSpec, rfl);
+  const level = resolveLevel(levelSpec, rfl, currentFl);
 
   if (usedFallback) trace.push("Repli : aucun cop de cette regle trouve sur la route, clause generale appliquee");
   trace.push(
@@ -510,6 +612,25 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [], activeRu
   const warnings = [...level.warnings];
   if (rule.verify) warnings.push(`Regle a verifier : ${rule.verify}`);
   if (exception && exception.verify) warnings.push("Exception issue d'une cellule PDF ambigue.");
+
+  // Plan de descente : pour tout trafic (arrivee, transit...) avec un XFL
+  // numerique exige au COP — pas de sens sur "sur coordination" ou une regle
+  // generale sans FL. Un trafic en montee (climb, pas descente) retombe
+  // naturellement sur status "none" (rien a perdre) dans computeDescentPlan,
+  // pas besoin de filtrer par classification ici.
+  const descentResult = level.fl !== null
+    ? computeDescentInfo({ fp, fixes, pos, cop: best.cop, targetFl: level.fl, activeRunway: activeRunways[fp.arr], trace })
+    : null;
+  const descent =
+    descentResult && (descentResult.status === "tod" || descentResult.status === "late")
+      ? {
+          status: descentResult.status,
+          minutes: Math.round((descentResult.todInSeconds ?? descentResult.lateSeconds) / 60),
+        }
+      : null;
+  if (descent?.status === "late") {
+    warnings.push(`Descente en retard de ${descent.minutes} min pour tenir FL${level.fl} au COP ${best.cop || "?"}`);
+  }
 
   const conditions = [];
   if (usedFallback) {
@@ -564,6 +685,7 @@ function evaluate({ myStation, fp, pos = {}, path = [], onlineATC = [], activeRu
     transferLevel: level.text,
     transferPoint: best.transferPoint,
     star,
+    descent,
     pointUnverified: usedFallback,
     labelFL,
     labelCheck,

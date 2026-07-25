@@ -1,4 +1,8 @@
 const { evaluate } = require("./loa-engine");
+const { loadNavPoints } = require("./navdata-loader");
+
+const NAV = loadNavPoints("./STAR");
+const FJR = NAV.get("FJR"); // VOR reel (STAR/France.vor), sert de reference pour les cas de descente ci-dessous
 
 const onlineATC = [
   { station: "LFMM_W_CTR", freq: "132.365" },
@@ -87,6 +91,26 @@ const cases = [
     path: "LESPI:0640",
     activeRunways: { LFLL: "35R" },
   },
+  {
+    // Plan de descente (feature du 25/07) : a 60nm de FJR (COP de la regle
+    // acc-lfml-prov, XFL FL150), FL200, 250kt — 5000ft a perdre = 15nm
+    // necessaires (regle 3:1), donc TOD attendu dans 11 min (45nm/250kt).
+    title: "Test plan de descente — avant le TOD",
+    myStation: "LFMM_W_CTR",
+    fp: { callsign: "AFR11EJ", dep: "LFBD", arr: "LFML", aircraft: "A320", wake: "M", cruiseLevel: "F340" },
+    pos: { altitude: 20000, groundSpeed: 250, lat: FJR.lat + 1.0, lon: FJR.lon },
+    path: "FJR:0630",
+  },
+  {
+    // Meme regle, mais a seulement 5nm de FJR en gardant FL200 : 15nm
+    // seraient necessaires pour perdre les 5000ft requis — en retard, doit
+    // remonter un avertissement (pas juste une valeur affichee en passant).
+    title: "Test plan de descente — en retard (avertissement attendu)",
+    myStation: "LFMM_W_CTR",
+    fp: { callsign: "AFR11EJ", dep: "LFBD", arr: "LFML", aircraft: "A320", wake: "M", cruiseLevel: "F340" },
+    pos: { altitude: 20000, groundSpeed: 250, lat: FJR.lat + 5 / 60, lon: FJR.lon },
+    path: "FJR:0630",
+  },
 ];
 
 for (const c of cases) {
@@ -109,6 +133,7 @@ for (const c of cases) {
     console.log(`  XFL          : ${r.transferLevel}`);
     console.log(`  Point        : ${r.transferPoint}${r.eto ? "  ETO " + r.eto : ""}`);
     if (r.star) console.log(`  STAR         : ${r.star}`);
+    if (r.descent) console.log(`  Descente     : ${r.descent.status === "late" ? "EN RETARD " : "TOD dans "}${r.descent.minutes} min`);
     console.log(`  Suivant      : ${r.nextStation}`);
     if (r.conditions.length) console.log(`  Conditions   : ${r.conditions.join(" | ")}`);
     if (r.warnings.length) console.log(`  ATTENTION    : ${r.warnings.join(" | ")}`);

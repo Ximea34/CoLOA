@@ -133,7 +133,7 @@ body {
 
 .head, .line {
   display: grid;
-  grid-template-columns: 1.1fr 1.7fr 1.3fr 1.1fr 1.7fr;
+  grid-template-columns: 1.1fr 1.6fr 1.2fr 1fr 1.1fr 1.6fr;
   gap: 16px;
   padding: 0 18px;
   align-items: center;
@@ -191,9 +191,11 @@ body {
 }
 .xfl[data-soft="true"] { color: var(--text-dim); }
 
-.point, .next, .star { font-family: var(--font-data); font-size: 13px; color: var(--text); }
+.point, .next, .star, .descent { font-family: var(--font-data); font-size: 13px; color: var(--text); }
 .point[data-soft="true"] { color: var(--warn); }
 .star[data-soft="true"] { color: var(--text-faint); }
+.descent[data-soft="true"] { color: var(--text-faint); }
+.descent[data-late="true"] { color: var(--err); font-weight: 600; }
 
 .sub {
   font-family: var(--font-ui);

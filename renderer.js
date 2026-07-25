@@ -133,6 +133,7 @@ function buildRow(r, fresh) {
       cell("xfl", "Hors LoA", true),
       cell("point", "—"),
       cell("star", "—", true),
+      descentCell(null),
       cell("next", "—")
     );
     node.append(line, notes([r.message], []));
@@ -147,6 +148,7 @@ function buildRow(r, fresh) {
     cell("xfl", r.transferLevel, /coordination|requis|Non defini/i.test(r.transferLevel)),
     point,
     cell("star", r.star || "—", !r.star),
+    descentCell(r.descent),
     cell("next", r.nextStation)
   );
 
@@ -167,6 +169,23 @@ function cell(cls, text, soft) {
   s.textContent = text;
   if (soft) s.dataset.soft = "true";
   return s;
+}
+
+// A part de cell() : 3 etats distincts (rien a prevoir, TOD a venir, en
+// retard) plutot qu'un simple bascule normal/attenue.
+function descentCell(d) {
+  const c = document.createElement("div");
+  c.className = "descent";
+  if (!d) {
+    c.textContent = "—";
+    c.dataset.soft = "true";
+  } else if (d.status === "late") {
+    c.textContent = `EN RETARD ${d.minutes}min`;
+    c.dataset.late = "true";
+  } else {
+    c.textContent = `TOD dans ${d.minutes}min`;
+  }
+  return c;
 }
 
 function sub(text) {
