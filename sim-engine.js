@@ -4,29 +4,8 @@
 // piloter les modes de navigation automatique (procedure, ILS) en reutilisant
 // la geometrie deja construite pour le moteur AMAN.
 
-const { resolveTransition, nearestPointIndex, advanceIndex, bearingRad, projectOnAxis } = require("./aman-engine");
-
-const EARTH_RADIUS_NM = 3440.065;
-
-function toRad(deg) { return (deg * Math.PI) / 180; }
-function toDeg(rad) { return (rad * 180) / Math.PI; }
-
-// Point d'arrivee a une distance/cap donnes depuis un point de depart —
-// formule geodesique directe standard (grand cercle).
-function destinationPoint(lat, lon, bearingDeg, distanceNm) {
-  const δ = distanceNm / EARTH_RADIUS_NM;
-  const θ = toRad(bearingDeg);
-  const φ1 = toRad(lat);
-  const λ1 = toRad(lon);
-
-  const φ2 = Math.asin(Math.sin(φ1) * Math.cos(δ) + Math.cos(φ1) * Math.sin(δ) * Math.cos(θ));
-  const λ2 = λ1 + Math.atan2(
-    Math.sin(θ) * Math.sin(δ) * Math.cos(φ1),
-    Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2)
-  );
-
-  return { lat: toDeg(φ2), lon: toDeg(λ2) };
-}
+const { resolveTransition, nearestPointIndex, advancePastPoints } = require("./aman-engine");
+const { toDeg, bearingRad, destinationPoint, projectOnAxis } = require("./geo");
 
 // Position actuelle d'un avion simule : extrapolee en une seule fois depuis
 // son dernier point connu (pas de petits pas cumules, pas d'erreur qui
@@ -48,11 +27,14 @@ function currentSimPos(entry, atMs, scale = 1) {
 function navigateProcedure(entry, config, pos) {
   const points = resolveTransition(config, entry.runwayConfig, entry.gate);
   if (!points) return null;
-  let idx = typeof entry.navIndex === "number" ? entry.navIndex : nearestPointIndex(points, pos);
-  idx = advanceIndex(points, idx, pos);
-  const target = points[idx];
+  const startIdx = typeof entry.navIndex === "number" ? entry.navIndex : nearestPointIndex(points, pos);
+  // pos n'a pas de cap ici (c'est justement ce qu'on calcule) : advancePastPoints
+  // degrade donc naturellement en avancement purement positionnel, cible =
+  // posIndex+1, comme souhaite pour un pilote automatique point-a-point.
+  const { posIndex, targetIndex } = advancePastPoints(points, startIdx, pos);
+  const target = points[targetIndex];
   const trackDeg = (toDeg(bearingRad(pos.lat, pos.lon, target.lat, target.lon)) + 360) % 360;
-  return { track: trackDeg, groundSpeed: target.speedKt, navIndex: idx };
+  return { track: trackDeg, groundSpeed: target.speedKt, navIndex: posIndex };
 }
 
 // Capture l'ILS : projette la position actuelle sur l'axe final (IF -> seuil)

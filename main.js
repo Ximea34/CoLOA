@@ -45,6 +45,7 @@ let failures = 0;
 let wanted = false;         // l'utilisateur veut-il etre connecte
 let timers = [];
 let reconnectTimer = null;
+let lastStatus = { state: "idle" }; // dernier statut connu, pour rattraper les cibles ouvertes apres coup
 
 // --- cache trafic partage (balayage global + AMAN) --------------------------
 // L'utilisateur peut basculer entre "je regarde l'avion selectionne" (mode
@@ -62,13 +63,12 @@ let trList = [];
 let trFetchedAt = 0;
 
 // Etat de progression AMAN par indicatif (jusqu'ou l'avion a avance sur sa
-// transition/son guidage, et depuis quand il devie eventuellement), memorise
-// d'un rafraichissement a l'autre — necessaire car "un point est franchi"
-// est un evenement (l'avion peut deja etre ressorti de sa petite zone de
-// detection au rafraichissement suivant). Opaque ici : seul aman-engine.js
-// interprete la forme exacte. Nettoye avec le reste du cache quand
-// l'indicatif quitte la liste #TR.
-const amanPointStates = new Map(); // indicatif -> { key, index, mode, deviationSince }
+// transition), memorise d'un rafraichissement a l'autre — necessaire car
+// "un point est franchi" est un evenement (l'avion peut deja etre ressorti
+// de sa petite zone de detection au rafraichissement suivant). Opaque ici :
+// seul aman-engine.js interprete la forme exacte. Nettoye avec le reste du
+// cache quand l'indicatif quitte la liste #TR.
+const amanPointStates = new Map(); // indicatif -> { key, posIndex }
 
 // Trafic simule pour tester l'AMAN sans trafic reel (place a la main sur la
 // carte du simulateur). Merge avec le trafic reel dans aman:compute — jamais
@@ -180,9 +180,21 @@ function createDebugWindow() {
 const broadcastTargets = new Set();
 
 function send(channel, payload) {
+  if (channel === "status") lastStatus = payload;
   for (const wc of broadcastTargets) {
     if (wc && !wc.isDestroyed()) wc.send(channel, payload);
   }
+}
+
+// Une cible ajoutee apres une transition d'etat (fenetre ouverte alors qu'on
+// est deja connecte, webview dockee en cours de route...) ne recoit jamais ce
+// qui a ete diffuse avant son existence : on lui renvoie le dernier statut
+// connu une fois son contenu charge (send() avant did-finish-load serait
+// perdu, le renderer n'a pas encore pose son listener onStatus).
+function sendCurrentStatus(webContents) {
+  webContents.once("did-finish-load", () => {
+    if (!webContents.isDestroyed()) webContents.send("status", lastStatus);
+  });
 }
 
 function sendToShell(channel, payload) {
@@ -214,6 +226,7 @@ function createManuelWindow(mode = "undocked") {
   manuelWin = w;
   const wc = w.webContents;
   broadcastTargets.add(wc);
+  sendCurrentStatus(wc);
   w.on("closed", () => { broadcastTargets.delete(wc); if (manuelWin === w) manuelWin = null; });
 }
 
@@ -242,6 +255,7 @@ function createAmanWindow(mode = "undocked") {
   amanWin = w;
   const wc = w.webContents;
   broadcastTargets.add(wc);
+  sendCurrentStatus(wc);
   w.on("closed", () => { broadcastTargets.delete(wc); if (amanWin === w) amanWin = null; });
 }
 
@@ -270,6 +284,7 @@ function createSimWindow(mode = "undocked") {
   simWin = w;
   const wc = w.webContents;
   broadcastTargets.add(wc);
+  sendCurrentStatus(wc);
   w.on("closed", () => { broadcastTargets.delete(wc); if (simWin === w) simWin = null; });
 }
 
@@ -294,6 +309,7 @@ function createWindow(mode = "undocked") {
   win = w;
   const wc = w.webContents;
   broadcastTargets.add(wc);
+  sendCurrentStatus(wc);
   w.on("closed", () => { broadcastTargets.delete(wc); if (win === w) win = null; });
 }
 
@@ -316,8 +332,10 @@ function createShellWindow() {
   });
   shellWin.loadFile("shell.html");
   broadcastTargets.add(shellWin.webContents);
+  sendCurrentStatus(shellWin.webContents);
   shellWin.webContents.on("did-attach-webview", (_event, webContents) => {
     broadcastTargets.add(webContents);
+    sendCurrentStatus(webContents);
     webContents.on("destroyed", () => broadcastTargets.delete(webContents));
   });
   const wc = shellWin.webContents;

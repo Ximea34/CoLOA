@@ -43,7 +43,6 @@ zoomInput.addEventListener("input", () => {
 });
 
 el("airport").addEventListener("change", loadRunwayConfigs);
-el("airport").addEventListener("blur", loadRunwayConfigs);
 
 async function loadRunwayConfigs() {
   const airport = el("airport").value.trim().toUpperCase();
@@ -127,8 +126,8 @@ function render(r) {
   const windowStart = nowSec - LOOKBACK_MIN * 60;
 
   const laneEls = [];
-  (r.gates || []).forEach((g) => laneEls.push(buildLane(g.gate, g.sequence, "eta")));
-  laneEls.push(buildLane(`Piste ${r.runwayConfig}`, r.sequence, "sta", true));
+  (r.gates || []).forEach((g) => laneEls.push(buildLane(g.gate, g.sequence)));
+  laneEls.push(buildLane(`Piste ${r.runwayConfig}`, r.sequence, true));
   laneEls.forEach((l) => lanes.append(l.root));
 
   // La hauteur n'est connue qu'une fois les colonnes dans le DOM (flex) —
@@ -140,7 +139,7 @@ function render(r) {
   laneEls.forEach((l) => fillLane(l, timeToY, bodyHeight));
 }
 
-function buildLane(title, sequence, timeField, isFinal) {
+function buildLane(title, sequence, isFinal) {
   const root = document.createElement("div");
   root.className = "lane" + (isFinal ? " lane-final" : "");
 
@@ -152,14 +151,14 @@ function buildLane(title, sequence, timeField, isFinal) {
   body.className = "lane-body";
 
   root.append(head, body);
-  return { root, body, sequence, timeField, isFinal };
+  return { root, body, sequence, isFinal };
 }
 
 const ROW_H = 22; // hauteur d'une etiquette + marge, pour l'empilage anti-chevauchement
 const RULER_W = 46;
 const LABEL_X = 62; // bord gauche des etiquettes (voir .ac-row dans aman.css)
 
-function fillLane({ body, sequence, timeField, isFinal }, timeToY, bodyHeight) {
+function fillLane({ body, sequence }, timeToY, bodyHeight) {
   const nowSec = Date.now() / 1000;
   const windowStart = nowSec - LOOKBACK_MIN * 60;
 
@@ -191,7 +190,7 @@ function fillLane({ body, sequence, timeField, isFinal }, timeToY, bodyHeight) {
   // vers le bas si elles chevaucheraient la precedente. Le trait de rappel
   // relie chaque etiquette a sa position temporelle exacte sur la regle.
   const visible = sequence
-    .map((ac) => ({ ac, timeY: timeToY(timeField === "sta" ? ac.staSeconds : ac.etaSeconds) }))
+    .map((ac) => ({ ac, timeY: timeToY(ac.staSeconds) }))
     .filter(({ timeY }) => timeY >= -10 && timeY <= bodyHeight + 10)
     .sort((a, b) => a.timeY - b.timeY);
 
@@ -229,12 +228,12 @@ function fillLane({ body, sequence, timeField, isFinal }, timeToY, bodyHeight) {
     }
     row.style.top = `${labelY}px`;
 
-    row.append(span("pos", ac.position), span("callsign", ac.callsign), span("wake", ac.wake));
-    if (isFinal) {
-      row.append(span("time", `${formatDelay(ac.ttlSeconds)} ${formatTime(ac.staSeconds)}`));
-    } else {
-      row.append(span("time", formatTime(ac.etaSeconds)));
-    }
+    row.append(
+      span("pos", ac.position),
+      span("callsign", ac.callsign),
+      span("wake", ac.wake),
+      span("time", `${formatDelay(ac.ttlSeconds)} ${formatTime(ac.staSeconds)}`)
+    );
     body.append(row);
   }
 }

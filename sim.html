@@ -30,6 +30,11 @@
   <button id="dock" class="ghost" hidden>Rattacher</button>
 </form>
 
+<div class="sim-tabs">
+  <button type="button" class="sim-tab active" data-tab="placement">Placement</button>
+  <button type="button" class="sim-tab" data-tab="debug">Debug ETA</button>
+</div>
+
 <div class="sim-main">
   <div class="sim-map-wrap">
     <svg id="map" class="sim-map" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet"></svg>
@@ -37,6 +42,7 @@
   </div>
 
   <div class="sim-side">
+    <div class="sim-panel" id="placementPanel">
     <form class="sim-ac-form" id="acForm" hidden>
       <h3 id="acFormTitle">Nouvel avion</h3>
       <label>Indicatif <input type="text" id="acCallsign" maxlength="10" autocomplete="off"></label>
@@ -68,6 +74,18 @@
 
     <div class="sim-list" id="list">
       <p class="empty">Aucun avion simulé.</p>
+    </div>
+    </div>
+
+    <div class="sim-panel" id="debugPanel" hidden>
+      <label>Avion suivi <select id="debugAcSelect"><option value="">—</option></select></label>
+      <div class="sim-debug-legend">
+        <span class="legend-item"><i class="legend-dot transition"></i>Transition</span>
+        <span class="legend-item"><i class="legend-dot target"></i>Point visé (jaune = procédure, rouge = hors trajectoire)</span>
+        <span class="legend-item"><i class="legend-dot gate"></i>Ligne de franchissement testée</span>
+      </div>
+      <p class="empty" id="debugEmpty">Charge un aéroport et actualise pour voir les avions suivis par l'AMAN.</p>
+      <pre class="sim-debug-trace" id="debugTrace" hidden></pre>
     </div>
   </div>
 </div>

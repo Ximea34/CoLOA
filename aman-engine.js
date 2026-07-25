@@ -5,31 +5,48 @@
 // (#TRPATHA ne couvre pas l'approche : aucun avion n'a sa STAR/transition
 // dans son plan de vol depose une fois proche du terrain).
 //
-// Guidage radar : modele mixte, pas de zones a configurer manuellement.
-// - Avant la porte (ligne perpendiculaire au 1er tronçon, GATE_LINE_HALF_NM de
-//   chaque cote) : toujours la methode transition, la porte reste la cible.
-// - Apres la porte : on surveille l'ecart lateral au tronçon en cours
-//   (DEVIATION_NM pendant DEVIATION_MS soutenues). Pas d'ecart -> transition
-//   inchangee. Ecart confirme -> guidage : on projette le cap actuel de
-//   l'avion sur la perpendiculaire a l'axe final centree sur l'IF (base +
-//   interception), plutot que de sommer des tronçons qu'il ne suit plus.
-// - Si le cap ne croise pas cette ligne (avion qui s'eloigne, remise de gaz,
-//   avion oublie), repli sur la methode transition — recalculee a chaque
-//   cycle a partir de la position reelle, donc s'auto-corrige des que le cap
-//   redevient exploitable.
+// Guidage radar : un seul calcul d'ETA (somme des tronçons, vitesse reelle
+// sur le tronçon en cours puis vitesse configuree), quel que soit le mode.
+// Ce qui differe pendant un guidage, c'est seulement la determination du
+// point vise : un avion vectorise peut couper plusieurs points de la
+// transition sans jamais s'en approcher physiquement. On considere donc un
+// point "franchi" des que la position a depasse sa perpendiculaire (au
+// tronçon sortant), ET — si le cap est disponible — que ce cap, prolonge en
+// ligne droite, passe a moins de HEADING_CORRIDOR_NM du point teste. Un
+// couloir en distance (pas un angle) : un angle fixe devient bien trop
+// permissif avec la distance (quelques degres suffisent a "viser" un point
+// tres eloigne par pure coincidence geometrique, ex. en vent arriere, sans
+// que l'avion y aille reellement). Le cap confirme une vraie progression
+// (pas un simple vecteur d'espacement qui croise la ligne par hasard sans
+// rien viser de plus loin) et permet de sauter plusieurs points d'un coup
+// si l'avion est deja loin devant.
 //
 // Aucun acces reseau ni Aurora ici : recoit "traffic" deja resolu (fp, path,
 // pos), comme evaluate() recoit deja fp/path/pos pour le moteur LOA.
 
 const path = require("path");
 const { loadRawStars } = require("./star-loader");
+const { toRad, toDeg, haversineNm, bearingRad, destinationPoint, projectOnAxis } = require("./geo");
 
 const RAW_STARS = loadRawStars(path.join(__dirname, "STAR"));
-const EARTH_RADIUS_NM = 3440.065;
-const GATE_LINE_HALF_NM = 25;    // demi-longueur de la perpendiculaire de porte, de chaque cote
-const DEVIATION_NM = 0.75;       // ecart de trajectoire declenchant le guidage
-const DEVIATION_MS = 8000;       // duree cumulee au-dela du seuil avant bascule
-const PERP_HALF_LEN_NM = 50;     // longueur de la perpendiculaire a l'axe final, de chaque cote de l'IF
+
+// Largeur du couloir aligne sur le cap actuel, pour confirmer qu'un point
+// est vraiment vise (pas juste dans la bonne direction approximative). A
+// ajuster selon l'observation en session reelle.
+const HEADING_CORRIDOR_NM = 2;
+
+// Ecart lateral maximum pour faire confiance au franchissement d'un point —
+// au-dela, l'avion est trop loin sur le cote pour que la perpendiculaire
+// signifie encore quelque chose. Applique a CHAQUE point de la transition
+// (contrairement a l'ancienne verification "porte franchie", ponctuelle) :
+// reste petit, sous peine de valider plusieurs points d'un coup par pure
+// proximite, sans rapport avec le cap.
+const LATERAL_TRUST_NM = 6;
+
+// Ecart lateral au-dela duquel on teinte l'avion comme "hors procedure"
+// dans l'affichage (frise, debug visuel) — purement informatif, n'affecte
+// plus le calcul d'ETA (unique quel que soit le mode).
+const DEVIATION_NM = 0.75;
 
 // Portes (IAF) pour un aeroport + une config piste : point final de chaque
 // STAR dont la liste de pistes correspond a la config choisie, dedoublonne
@@ -66,87 +83,16 @@ function matchGate(gates, fixes) {
   return null;
 }
 
-function toRad(deg) {
-  return (deg * Math.PI) / 180;
-}
-
-// Distance grand cercle en NM — suffisant a l'echelle d'une approche (quelques
-// dizaines de NM), pas besoin d'un modele plus precis.
-function haversineNm(lat1, lon1, lat2, lon2) {
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return EARTH_RADIUS_NM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 // Resout la liste de noms de points d'une transition en objets complets
-// {name, lat, lon, speedKt, radiusNm} via le dictionnaire "points" partage.
+// {name, lat, lon, speedKt} via le dictionnaire "points" partage.
 function resolveTransition(config, runwayConfig, gate) {
   const names = config?.transitions?.[runwayConfig]?.[gate];
   if (!names || !names.length) return null;
   const points = names.map((name) => {
     const p = config.points?.[name];
-    return p ? { name, lat: p.lat, lon: p.lon, speedKt: p.speedKt, radiusNm: p.radiusNm ?? 1.5 } : null;
+    return p ? { name, lat: p.lat, lon: p.lon, speedKt: p.speedKt } : null;
   });
   return points.every(Boolean) ? points : null;
-}
-
-function bearingRad(lat1, lon1, lat2, lon2) {
-  const φ1 = toRad(lat1), φ2 = toRad(lat2), Δλ = toRad(lon2 - lon1);
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-  return Math.atan2(y, x);
-}
-
-// Projection plane locale centree sur un point de reference (NM est/nord) —
-// approximation suffisante a l'echelle d'une zone de guidage (quelques
-// dizaines de NM), coherente avec l'approximation deja utilisee pour les
-// distances (haversineNm).
-function localXY(ref, p) {
-  return {
-    x: (p.lon - ref.lon) * 60 * Math.cos(toRad(ref.lat)),
-    y: (p.lat - ref.lat) * 60,
-  };
-}
-
-// Position de l'avion projetee sur l'axe ref->suivant, dans le plan local
-// centre sur ref : along = distance le long de l'axe (positif = au-dela de
-// ref), cross = ecart lateral (NM, signe). Sert a la fois pour verifier le
-// franchissement de la porte et l'ecart lateral au tronçon en cours.
-function projectOnAxis(ref, axisBearingRad, pos) {
-  const p = localXY(ref, pos);
-  const dir = { x: Math.sin(axisBearingRad), y: Math.cos(axisBearingRad) };
-  return {
-    along: p.x * dir.x + p.y * dir.y,
-    cross: p.x * dir.y - p.y * dir.x,
-  };
-}
-
-// Cherche ou le cap actuel de l'avion croise la perpendiculaire a l'axe
-// final, centree sur l'IF (longueur PERP_HALF_LEN_NM de chaque cote).
-// Renvoie null si le cap ne croise pas la ligne devant l'avion (route qui
-// s'eloigne ou quasi parallele) ou si le croisement tombe hors de la ligne —
-// dans ce cas l'appelant retombe sur la methode porte/transition.
-function projectTrackToLine(pos, trackDeg, ifPoint, axisBearingRad) {
-  const p0 = localXY(ifPoint, pos);
-  const dirRad = toRad(trackDeg);
-  const dir = { x: Math.sin(dirRad), y: Math.cos(dirRad) };
-  const perp = { x: Math.cos(axisBearingRad), y: -Math.sin(axisBearingRad) };
-
-  // p0 + t*dir = s*perp  (t = distance parcourue au cap actuel, s = position
-  // signee sur la perpendiculaire, l'IF etant a s=0)
-  const a1 = dir.x, b1 = -perp.x, c1 = -p0.x;
-  const a2 = dir.y, b2 = -perp.y, c2 = -p0.y;
-  const det = a1 * b2 - b1 * a2;
-  if (Math.abs(det) < 1e-9) return null; // cap parallele a la perpendiculaire
-
-  const t = (c1 * b2 - b1 * c2) / det;
-  const s = (a1 * c2 - c1 * a2) / det;
-  if (t < 0 || Math.abs(s) > PERP_HALF_LEN_NM) return null;
-
-  return { crossingNm: t, baseLegNm: Math.abs(s) };
 }
 
 // Avion jamais vu : on ne suppose pas qu'il vient d'entrer sur la transition
@@ -163,17 +109,56 @@ function nearestPointIndex(points, pos) {
   return best;
 }
 
-// Avance l'index tant que la position reelle est entree dans la zone du
-// point actuellement vise (cercle de rayon radiusNm) — peut avancer de
-// plusieurs points d'un coup si le rafraichissement precedent est ancien.
-function advanceIndex(points, index, pos) {
-  let idx = index;
+// Deux indices distincts, pour ne jamais rester bloque sur une cible perimee
+// si le cap change :
+// - posIndex : progression physique confirmee (perpendiculaire au tronçon
+//   sortant, position seule, sans le cap) — ne peut jamais reculer, c'est
+//   ce qui est memorise d'un cycle a l'autre (memoire fiable : l'avion ne
+//   revient pas en arriere le long de la route).
+// - targetIndex : cible utilisee pour CE calcul d'ETA, recalculee a partir
+//   du cap ACTUEL a chaque cycle, jamais memorisee au-dela de posIndex. Si
+//   le cap change (l'avion n'est plus vectorise vers un point lointain, ou
+//   plus du tout), la cible redescend immediatement au cycle suivant au
+//   lieu de rester bloquee sur un choix devenu obsolete.
+function advancePastPoints(points, posIndex, pos, trace) {
+  // 1. Avancement physique (position seule), monotone.
+  let idx = posIndex;
   while (idx < points.length - 1) {
-    const d = haversineNm(pos.lat, pos.lon, points[idx].lat, points[idx].lon);
-    if (d <= (points[idx].radiusNm ?? 1.5)) idx++;
+    const legBearingRad = bearingRad(points[idx].lat, points[idx].lon, points[idx + 1].lat, points[idx + 1].lon);
+    const proj = projectOnAxis(points[idx], legBearingRad, pos);
+    if (proj.along > 0 && Math.abs(proj.cross) <= LATERAL_TRUST_NM) idx++;
     else break;
   }
-  return idx;
+  if (trace && idx !== posIndex) {
+    trace.push(`progression (position) : ${points[posIndex].name} -> ${points[idx].name}`);
+  }
+  const newPosIndex = idx;
+
+  if (newPosIndex >= points.length - 1) {
+    return { posIndex: newPosIndex, targetIndex: newPosIndex };
+  }
+
+  // 2. Cible de ce cycle uniquement : le cap peut la pousser plus loin que
+  //    le plancher physique (avion vectorise loin devant), mais ce choix
+  //    n'est jamais memorise — reevalue a chaque cycle a partir du cap du
+  //    moment.
+  if (typeof pos.track === "number") {
+    const trackRad = toRad(pos.track);
+    for (let k = points.length - 1; k > newPosIndex; k--) {
+      // Le point teste doit tomber a moins de HEADING_CORRIDOR_NM de la
+      // ligne droite prolongeant le cap actuel (couloir en distance, pas en
+      // angle) — et etre devant, pas derriere.
+      const proj = projectOnAxis(pos, trackRad, points[k]);
+      if (proj.along > 0 && Math.abs(proj.cross) <= HEADING_CORRIDOR_NM) {
+        if (trace) trace.push(`cap ${pos.track.toFixed(0)}° vise ${points[k].name} (ecart ${proj.cross.toFixed(1)}NM sur ${proj.along.toFixed(1)}NM) -> cible ${points[k].name}`);
+        return { posIndex: newPosIndex, targetIndex: k };
+      }
+    }
+  }
+
+  const targetIndex = newPosIndex + 1;
+  if (trace) trace.push(`cap ne confirme aucun point au-dela de ${points[newPosIndex].name} -> cible ${points[targetIndex].name}`);
+  return { posIndex: newPosIndex, targetIndex };
 }
 
 // ETA au seuil (secondes depuis maintenant) : le tronçon en cours (position
@@ -220,7 +205,7 @@ function statusFor(ttlSeconds) {
 
 // traffic : [{ callsign, fp: {arr, wake, rules}, path: [{fix}], pos: {lat,
 // lon, groundSpeed, onGround} }]. pointStates : etat persiste d'un
-// rafraichissement a l'autre, { [callsign]: { key, index } } — fourni par
+// rafraichissement a l'autre, { [callsign]: { key, posIndex } } — fourni par
 // l'appelant (main.js), renvoye mis a jour (fonction pure, pas de mutation
 // cachee : l'appelant est responsable de le conserver entre deux appels).
 function computeSequence({ airport, runwayConfig, traffic, config, pointStates, now }) {
@@ -251,87 +236,52 @@ function computeSequence({ airport, runwayConfig, traffic, config, pointStates, 
 
     const points = resolveTransition(config, runwayConfig, gate);
     if (!points) continue; // pas de transition configuree pour cette porte/piste
-    if (points.length < 3) continue; // il faut au moins IF/FAF/seuil pour situer l'IF — garde-fou
-
-    const gatePoint = points[0];
-    const gateAxisBearingRad = bearingRad(gatePoint.lat, gatePoint.lon, points[1].lat, points[1].lon);
-
-    const ifIndex = points.length - 3;
-    const ifPoint = points[ifIndex];
-    const thrPoint = points[points.length - 1];
-    const finalAxisBearingRad = bearingRad(ifPoint.lat, ifPoint.lon, thrPoint.lat, thrPoint.lon);
 
     const trace = [`porte=${gate} transition=[${points.map((p) => p.name).join(" > ")}]`];
 
-    // Methode porte/transition : toujours calculee, sert de base et de repli
-    // si le guidage n'est pas retenu plus bas.
     const stateKey = `${runwayConfig}|${gate}`;
     const prev = pointStates?.[ac.callsign];
     const fromMemory = prev && prev.key === stateKey;
-    const startIndex = fromMemory ? prev.index : nearestPointIndex(points, ac.pos);
-    trace.push(`index initial (${fromMemory ? "memoire" : "point le plus proche"}) = ${startIndex} (${points[startIndex].name})`);
+    const startPosIndex = fromMemory ? prev.posIndex : nearestPointIndex(points, ac.pos);
+    trace.push(`index initial (${fromMemory ? "memoire" : "point le plus proche"}) = ${startPosIndex} (${points[startPosIndex].name})`);
 
-    let index = advanceIndex(points, startIndex, ac.pos);
-    if (index !== startIndex) {
-      trace.push(`avance par franchissement de zone : ${startIndex} (${points[startIndex].name}) -> ${index} (${points[index].name})`);
-    }
+    const { posIndex, targetIndex } = advancePastPoints(points, startPosIndex, ac.pos, trace);
+    nextStates[ac.callsign] = { key: stateKey, posIndex };
 
+    const etaOffset = etaSecondsFromNow(points, targetIndex, ac.pos, trace);
+    const currentPoint = points[targetIndex].name;
+
+    // Mode d'affichage uniquement (n'affecte pas le calcul, qui est
+    // desormais unique) : ecart lateral au tronçon physiquement en cours
+    // (posIndex, pas la cible transitoire du cap), pour teinter
+    // differemment un avion qui n'est plus exactement sur la trajectoire
+    // publiee.
     let mode = "procedure";
-    let etaOffset = etaSecondsFromNow(points, index, ac.pos, trace);
-    let currentPoint = points[index].name;
-    let deviationSince = fromMemory ? prev.deviationSince : null;
+    let crossingLine = null;
+    if (posIndex < points.length - 1) {
+      const legBearingRad = bearingRad(points[posIndex].lat, points[posIndex].lon, points[posIndex + 1].lat, points[posIndex + 1].lon);
+      const xtrackNm = projectOnAxis(points[posIndex], legBearingRad, ac.pos).cross;
+      if (Math.abs(xtrackNm) > DEVIATION_NM) mode = "guidage";
 
-    // Porte franchie ? Perpendiculaire au 1er tronçon (porte -> point
-    // suivant), fiable seulement dans une bande de GATE_LINE_HALF_NM de
-    // chaque cote — au-dela, ecart lateral trop important pour conclure,
-    // on reste prudent (pas franchie).
-    const gateProj = projectOnAxis(gatePoint, gateAxisBearingRad, ac.pos);
-    const passedGate = gateProj.along > 0 && Math.abs(gateProj.cross) <= GATE_LINE_HALF_NM;
-    trace.push(`porte ${passedGate ? "franchie" : "pas franchie"} (long=${gateProj.along.toFixed(1)}NM, lat=${gateProj.cross.toFixed(1)}NM)`);
-
-    if (!passedGate) {
-      deviationSince = null;
-    } else if (index < points.length - 1) {
-      const xtrackNm = projectOnAxis(points[index], bearingRad(points[index].lat, points[index].lon, points[index + 1].lat, points[index + 1].lon), ac.pos).cross;
-      trace.push(`ecart trajectoire = ${xtrackNm.toFixed(2)}NM (seuil ${DEVIATION_NM}NM)`);
-
-      if (Math.abs(xtrackNm) <= DEVIATION_NM) {
-        deviationSince = null;
-      } else {
-        if (!deviationSince) deviationSince = now ?? Date.now();
-        const elapsedMs = (now ?? Date.now()) - deviationSince;
-        trace.push(`hors trajectoire depuis ${(elapsedMs / 1000).toFixed(0)}s (seuil ${DEVIATION_MS / 1000}s)`);
-
-        if (elapsedMs >= DEVIATION_MS) {
-          if (typeof ac.pos.track !== "number") {
-            trace.push("guidage : cap indisponible, methode transition conservee");
-          } else {
-            const crossing = projectTrackToLine(ac.pos, ac.pos.track, ifPoint, finalAxisBearingRad);
-            if (!crossing) {
-              trace.push(`guidage : cap ${ac.pos.track}° ne croise pas la perpendiculaire — methode transition conservee`);
-            } else {
-              const realSpeed = ac.pos.groundSpeed > 30 ? ac.pos.groundSpeed : ifPoint.speedKt;
-              const leg1Sec = (crossing.crossingNm / realSpeed) * 3600;
-              const leg2Sec = (crossing.baseLegNm / ifPoint.speedKt) * 3600;
-              trace.push(
-                `guidage : cap ${ac.pos.track}° croise la perpendiculaire a ${crossing.crossingNm.toFixed(1)}NM ` +
-                `(${leg1Sec.toFixed(0)}s @ ${realSpeed.toFixed(0)}kt), puis ${crossing.baseLegNm.toFixed(1)}NM ` +
-                `jusqu'a l'IF (${leg2Sec.toFixed(0)}s @ ${ifPoint.speedKt}kt)`
-              );
-              const legsFromIF = etaSecondsFromNow(points, ifIndex, { lat: ifPoint.lat, lon: ifPoint.lon, groundSpeed: 0 }, trace);
-              mode = "guidage";
-              etaOffset = leg1Sec + leg2Sec + legsFromIF;
-              currentPoint = ifPoint.name;
-            }
-          }
-        }
-      }
+      // Ligne testee pour la prochaine progression physique, pour le debug
+      // visuel — montre precisement ce qui determine l'avancement du
+      // plancher de position (pas la cible transitoire du cap).
+      const legBearingDeg = toDeg(legBearingRad);
+      crossingLine = [
+        destinationPoint(points[posIndex].lat, points[posIndex].lon, legBearingDeg + 90, LATERAL_TRUST_NM),
+        destinationPoint(points[posIndex].lat, points[posIndex].lon, legBearingDeg - 90, LATERAL_TRUST_NM),
+      ];
     }
-
-    nextStates[ac.callsign] = { key: stateKey, index, deviationSince };
 
     const etaSec = nowSeconds + etaOffset;
     trace.push(`ETA totale = ${etaOffset.toFixed(0)}s -> ${secondsToHhmm(etaSec)}`);
+
+    const geo = {
+      pos: { lat: ac.pos.lat, lon: ac.pos.lon },
+      points: points.map((p) => ({ name: p.name, lat: p.lat, lon: p.lon, speedKt: p.speedKt })),
+      index: targetIndex,
+      crossingLine,
+    };
 
     candidates.push({
       callsign: ac.callsign,
@@ -341,6 +291,7 @@ function computeSequence({ airport, runwayConfig, traffic, config, pointStates, 
       mode,
       etaSec,
       trace,
+      geo,
     });
   }
 
@@ -371,37 +322,27 @@ function computeSequence({ airport, runwayConfig, traffic, config, pointStates, 
       ttlSeconds,
       status: statusFor(ttlSeconds),
       trace: ac.trace,
+      geo: ac.geo,
     };
   });
 
-  // Vue par porte, avant fusion sur la piste : chaque avion reste dans la
-  // colonne de sa propre porte, triee par ETA. Pas de cascade de separation
-  // ici (le moteur ne modelise pas d'attente/hippodrome par porte, juste un
-  // flux continu vers le seuil) — seule la sequence fusionnee ci-dessus a
-  // une vraie STA/TTL. Sert a l'affichage "avant fusion" de la frise AMAN.
+  // Vue par porte : mêmes avions, mêmes objets que la sequence fusionnee
+  // (position dans la sequence reelle, STA apres cascade, TTL/statut) — pas
+  // une deuxieme verite recalculee sans separation. Sert juste a regrouper
+  // l'affichage par porte d'origine, la realite (STA/retard) est identique
+  // partout ou un avion apparait.
   const byGate = new Map();
-  for (const ac of candidates) {
+  for (const ac of sequence) {
     if (!byGate.has(ac.gate)) byGate.set(ac.gate, []);
     byGate.get(ac.gate).push(ac);
   }
-  const gateLanes = [...byGate.entries()].map(([gate, list]) => ({
-    gate,
-    sequence: list.map((ac, i) => ({
-      position: i + 1,
-      callsign: ac.callsign,
-      wake: ac.wake,
-      currentPoint: ac.currentPoint,
-      mode: ac.mode,
-      eta: secondsToHhmm(ac.etaSec),
-      etaSeconds: ac.etaSec,
-    })),
-  }));
+  const gateLanes = [...byGate.entries()].map(([gate, list]) => ({ gate, sequence: list }));
 
   return { airport, runwayConfig, sequence, gates: gateLanes, pointStates: nextStates, error: null };
 }
 
 module.exports = {
-  computeSequence, gatesFor, haversineNm, projectTrackToLine, secondsToHhmm,
-  resolveTransition, nearestPointIndex, advanceIndex, bearingRad, projectOnAxis,
-  toDeg: (rad) => (rad * 180) / Math.PI,
+  computeSequence, gatesFor, secondsToHhmm,
+  resolveTransition, nearestPointIndex, advancePastPoints,
+  HEADING_CORRIDOR_NM, LATERAL_TRUST_NM, DEVIATION_NM,
 };

@@ -41,12 +41,40 @@
 }
 #load:hover { background: var(--accent); color: #0e1013; }
 
+.sim-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.sim-tab {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.sim-tab:hover { color: var(--accent); border-color: var(--accent); }
+.sim-tab.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
 .sim-main {
   flex: 1;
   display: flex;
   min-height: 0;
   overflow: hidden;
 }
+
+.sim-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.sim-panel[hidden] { display: none; }
 
 .sim-map-wrap {
   flex: 1;
@@ -152,6 +180,60 @@
 .sim-ac-row .cs { color: var(--text); font-size: 13px; }
 .sim-ac-row .meta { color: var(--text-faint); }
 
+/* --- panneau debug ETA ------------------------------------------------------ */
+
+#debugPanel {
+  padding: 12px;
+  gap: 10px;
+}
+#debugPanel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+#debugPanel select {
+  font: inherit;
+  font-family: var(--font-data);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 7px;
+}
+
+.sim-debug-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 2px; border-radius: 1px; display: inline-block; }
+.legend-dot.transition { background: var(--accent); }
+.legend-dot.target { background: var(--warn); width: 8px; height: 8px; border-radius: 50%; }
+.legend-dot.gate { background: var(--text-dim); }
+
+.sim-debug-trace {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-data);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+}
+.sim-debug-trace[hidden] { display: none; }
+
 /* --- carte SVG -------------------------------------------------------------- */
 
 .sim-map .grid-line { stroke: var(--border-soft); stroke-width: 1; }
@@ -163,3 +245,10 @@
 .sim-map .ac-marker polygon { fill: var(--accent); stroke: var(--bg); stroke-width: 1; }
 .sim-map .ac-marker text { fill: var(--text); font-size: 10px; font-family: var(--font-data); }
 .sim-map .ac-marker.selected polygon { fill: var(--warn); }
+
+.sim-map .debug-transition-line { stroke: var(--accent); stroke-width: 2; fill: none; }
+.sim-map .debug-crossing-line { stroke: var(--text-dim); stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+.sim-map .debug-target-point { fill: var(--warn); stroke: var(--bg); stroke-width: 1.5; }
+.sim-map .debug-target-point[data-mode="guidage"] { fill: var(--err); }
+.sim-map .debug-ac-marker polygon { fill: var(--warn); stroke: var(--bg); stroke-width: 1; }
+.sim-map .debug-ac-marker text { fill: var(--text); font-size: 10px; font-family: var(--font-data); font-weight: bold; }

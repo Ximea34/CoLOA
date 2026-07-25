@@ -7,6 +7,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("sim", {
   getPoints: (airport) => ipcRenderer.invoke("sim:points", airport),
   getGates: (airport, runwayConfig) => ipcRenderer.invoke("aman:gates", { airport, runwayConfig }),
+  compute: (params) => ipcRenderer.invoke("aman:compute", params),
   add: (ac) => ipcRenderer.invoke("sim:add", ac),
   update: (callsign, patch) => ipcRenderer.invoke("sim:update", { callsign, patch }),
   remove: (callsign) => ipcRenderer.invoke("sim:remove", callsign),

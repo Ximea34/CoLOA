@@ -15,6 +15,9 @@ let projection = null; // { toXY, toLatLon }
 let currentAirport = null;
 let editingCallsign = null; // null = mode "ajout"
 let refreshTimer = null;
+let activeTab = "placement";
+let debugRefreshTimer = null;
+let debugSelected = null; // indicatif suivi dans l'onglet Debug ETA
 
 const mode = new URLSearchParams(location.search).get("mode") || "undocked";
 if (mode !== "docked") {
@@ -23,11 +26,32 @@ if (mode !== "docked") {
 }
 
 el("airport").addEventListener("change", loadRunwayConfigs);
-el("airport").addEventListener("blur", loadRunwayConfigs);
 
 el("timeScale").addEventListener("change", () => {
   window.sim.setTimeScale(Number(el("timeScale").value));
 });
+
+document.querySelectorAll(".sim-tab").forEach((btn) => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll(".sim-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  el("placementPanel").hidden = tab !== "placement";
+  el("debugPanel").hidden = tab !== "debug";
+
+  clearInterval(refreshTimer);
+  clearInterval(debugRefreshTimer);
+  clearDebugOverlay();
+  clearPlacementMarkers(); // efface les marqueurs de l'autre onglet, sinon ils restent figes a l'ecran
+
+  if (tab === "placement") {
+    if (projection) { refreshTimer = setInterval(refreshList, 2000); refreshList(); }
+  } else {
+    if (projection) { debugRefreshTimer = setInterval(refreshDebug, 2000); refreshDebug(); }
+  }
+}
 
 async function loadRunwayConfigs() {
   const airport = el("airport").value.trim().toUpperCase();
@@ -68,9 +92,7 @@ async function loadAirport() {
   gateSelect.innerHTML = "";
   gates.forEach((g) => gateSelect.append(new Option(g, g)));
 
-  clearInterval(refreshTimer);
-  refreshTimer = setInterval(refreshList, 2000);
-  refreshList();
+  switchTab(activeTab);
 }
 
 function buildProjection(points) {
@@ -146,6 +168,7 @@ function drawReference(points, transitions) {
 }
 
 function onMapClick(e) {
+  if (activeTab !== "placement") return; // pas de placement en mode debug
   if (e.target.closest(".ac-marker")) return; // gere par le marqueur lui-meme
   if (!projection) return;
   const rect = svg.getBoundingClientRect();
@@ -273,4 +296,109 @@ async function refreshList() {
     row.addEventListener("click", () => openForm(ac.callsign, ac));
     listEl.append(row);
   });
+}
+
+// --- onglet Debug ETA --------------------------------------------------------
+// Montre, pour un avion suivi par l'AMAN (reel ou simule), la transition
+// qui lui est assignee, le point vise, et — en guidage — la projection de
+// cap utilisee pour le calcul, en plus de la trace textuelle deja loguee
+// dans la fenetre Debug generale.
+
+const debugAcSelect = el("debugAcSelect");
+const debugEmpty = el("debugEmpty");
+const debugTrace = el("debugTrace");
+
+debugAcSelect.addEventListener("change", () => {
+  debugSelected = debugAcSelect.value || null;
+  drawDebugOverlay(lastDebugSequence);
+});
+
+let lastDebugSequence = [];
+
+async function refreshDebug() {
+  if (!projection || !currentAirport) return;
+  const runwayConfig = runwaySelect.value;
+  if (!runwayConfig) return;
+  const result = await window.sim.compute({ airport: currentAirport, runwayConfig });
+  lastDebugSequence = result.sequence || [];
+
+  const previousValue = debugAcSelect.value;
+  debugAcSelect.innerHTML = "";
+  debugAcSelect.append(new Option("—", ""));
+  lastDebugSequence.forEach((ac) => debugAcSelect.append(new Option(`${ac.callsign} (${ac.mode})`, ac.callsign)));
+  if (lastDebugSequence.some((ac) => ac.callsign === previousValue)) debugAcSelect.value = previousValue;
+  else debugSelected = null;
+
+  drawDebugOverlay(lastDebugSequence);
+}
+
+function clearDebugOverlay() {
+  svg.querySelectorAll(
+    ".debug-transition-line, .debug-crossing-line, .debug-target-point, .debug-ac-marker"
+  ).forEach((n) => n.remove());
+}
+
+function clearPlacementMarkers() {
+  svg.querySelectorAll(".ac-marker").forEach((n) => n.remove());
+}
+
+function drawDebugOverlay(sequence) {
+  clearDebugOverlay();
+  if (!projection) return;
+
+  const ac = sequence.find((a) => a.callsign === debugSelected);
+  if (!ac) {
+    debugEmpty.hidden = false;
+    debugEmpty.textContent = sequence.length
+      ? "Sélectionne un avion dans la liste pour voir sa trajectoire."
+      : "Aucun avion suivi par l'AMAN pour cet aéroport/config piste.";
+    debugTrace.hidden = true;
+    return;
+  }
+  debugEmpty.hidden = true;
+
+  const ns = "http://www.w3.org/2000/svg";
+  const geo = ac.geo;
+
+  // Transition assignee, point vise mis en avant.
+  const transCoords = geo.points.map((p) => projection.toXY(p.lat, p.lon));
+  const transLine = document.createElementNS(ns, "polyline");
+  transLine.setAttribute("class", "debug-transition-line");
+  transLine.setAttribute("points", transCoords.map((c) => `${c.x},${c.y}`).join(" "));
+  svg.append(transLine);
+
+  const targetXY = transCoords[geo.index];
+  const target = document.createElementNS(ns, "circle");
+  target.setAttribute("class", "debug-target-point");
+  target.setAttribute("data-mode", ac.mode);
+  target.setAttribute("cx", targetXY.x); target.setAttribute("cy", targetXY.y); target.setAttribute("r", 5);
+  svg.append(target);
+
+  // Ligne testee pour la prochaine progression (perpendiculaire au tronçon
+  // en cours) — montre precisement ce qui determine l'avancement de
+  // l'index, que l'avion soit sur la procedure ou vectorise.
+  if (geo.crossingLine) {
+    const lineCoords = geo.crossingLine.map((p) => projection.toXY(p.lat, p.lon));
+    const crossingLine = document.createElementNS(ns, "line");
+    crossingLine.setAttribute("class", "debug-crossing-line");
+    crossingLine.setAttribute("x1", lineCoords[0].x); crossingLine.setAttribute("y1", lineCoords[0].y);
+    crossingLine.setAttribute("x2", lineCoords[1].x); crossingLine.setAttribute("y2", lineCoords[1].y);
+    svg.append(crossingLine);
+  }
+
+  // Position reelle de l'avion suivi.
+  const acXY = projection.toXY(geo.pos.lat, geo.pos.lon);
+  const marker = document.createElementNS(ns, "g");
+  marker.setAttribute("class", "debug-ac-marker");
+  marker.setAttribute("transform", `translate(${acXY.x},${acXY.y})`);
+  const tri = document.createElementNS(ns, "polygon");
+  tri.setAttribute("points", "0,-7 5,6 -5,6");
+  const label = document.createElementNS(ns, "text");
+  label.setAttribute("x", 8); label.setAttribute("y", 4);
+  label.textContent = ac.callsign;
+  marker.append(tri, label);
+  svg.append(marker);
+
+  debugTrace.hidden = false;
+  debugTrace.textContent = (ac.trace || []).join("\n");
 }
