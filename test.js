@@ -49,6 +49,44 @@ const cases = [
     pos: { altitude: 22000, verticalSpeed: -2000 },
     path: "ARBON:0655 LL103:0700",
   },
+  {
+    // Signale par l'utilisateur (session du 25/07) : le COP retenu par la
+    // regle (FJR, "entree en direct") n'est pas le COP final de la STAR —
+    // la STAR se reconnait par son point d'ENTREE (dernier point connu sur
+    // la route), jamais par le COP choisi par la regle. Attendu : FJR1L.
+    title: "Test STAR affichee — LFML via FJR (entree directe)",
+    myStation: "LFMM_W_CTR",
+    fp: { callsign: "AFR11EJ", dep: "LFBD", arr: "LFML", aircraft: "A320", wake: "M", cruiseLevel: "F340" },
+    pos: { altitude: 8000, verticalSpeed: -1500 },
+    path: "OBLOC:0620 SECHE:0623 SOVET:0626 FJR:0630",
+  },
+  {
+    // Signale par l'utilisateur (session du 25/07) : #TRPATHA d'Aurora inclut
+    // parfois un point de virage sans nom juste avant l'aeroport ("fix" vide,
+    // jamais filtre par parseTRPATHL — d'ou les espaces multiples visibles
+    // dans le log reel : "LUMAS SOSUR    LFML"). Sans filtrage, le "dernier
+    // point connu" tombait sur ce blanc au lieu de SOSUR, et aucune STAR ne
+    // s'affichait. Attendu : SOSUR1L.
+    title: "Test STAR affichee — LFML via SOSUR (points de virage sans nom avant l'aeroport)",
+    myStation: "LFMM_W_CTR",
+    fp: { callsign: "AFR32A", dep: "LEPA", arr: "LFML", aircraft: "A320", wake: "M", cruiseLevel: "F340" },
+    pos: { altitude: 9000, verticalSpeed: -1500 },
+    path: "MEROS:0615 LAPIT:0618 CHELY:0621 LUMAS:0624 SOSUR:0627   LFML:0635",
+  },
+  {
+    // Signale par l'utilisateur (session du 25/07) : LESPI9S et LESPI9N
+    // (LFLL) partagent le meme point d'entree (LESPI) ET le meme COP final
+    // (TALAR) — seule la piste differe. STAR_DB (voir loadStars) fusionne a
+    // dessein les variantes qui menent au meme COP, ce qui ecrasait le nom
+    // de la seconde variante : la piste configuree n'avait alors plus aucun
+    // effet, LESPI9S ressortait toujours. Attendu : LESPI9N avec 35R actif.
+    title: "Test STAR affichee — LFLL via LESPI (deux variantes, meme COP final)",
+    myStation: "LFMM_W_CTR",
+    fp: { callsign: "MANUEL2", dep: "LFRS", arr: "LFLL", aircraft: "A320", wake: "M", cruiseLevel: "F280" },
+    pos: { altitude: 9000, verticalSpeed: -1500 },
+    path: "LESPI:0640",
+    activeRunways: { LFLL: "35R" },
+  },
 ];
 
 for (const c of cases) {
@@ -56,7 +94,7 @@ for (const c of cases) {
     const [fix, eto] = p.split(":");
     return { fix, eto };
   });
-  const r = evaluate({ myStation: c.myStation, fp: c.fp, pos: c.pos, path, onlineATC });
+  const r = evaluate({ myStation: c.myStation, fp: c.fp, pos: c.pos, path, onlineATC, activeRunways: c.activeRunways || {} });
 
   console.log("=".repeat(70));
   console.log(c.title);
@@ -70,6 +108,7 @@ for (const c of cases) {
     console.log(`${r.callsign}  ${r.aircraft}  ${r.route}   RFL ${r.rfl}`);
     console.log(`  XFL          : ${r.transferLevel}`);
     console.log(`  Point        : ${r.transferPoint}${r.eto ? "  ETO " + r.eto : ""}`);
+    if (r.star) console.log(`  STAR         : ${r.star}`);
     console.log(`  Suivant      : ${r.nextStation}`);
     if (r.conditions.length) console.log(`  Conditions   : ${r.conditions.join(" | ")}`);
     if (r.warnings.length) console.log(`  ATTENTION    : ${r.warnings.join(" | ")}`);

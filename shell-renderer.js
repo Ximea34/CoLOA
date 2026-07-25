@@ -70,6 +70,13 @@ function activate(id) {
     m.webview.classList.toggle("active", otherId === id);
     m.tab.classList.toggle("active", otherId === id);
   }
+  // Rendre l'onglet actif ne transfere que sa visibilite CSS, jamais le
+  // focus OS/Chromium au processus invite — sans ce focus explicite, un
+  // <select> a l'interieur consomme son premier clic pour transferer le
+  // focus (rien ne s'ouvre), et n'affiche sa liste au premier plan qu'au
+  // second clic. D'ou le "il faut cliquer deux fois" sur tous les
+  // selecteurs de piste des modules dockes.
+  openModules.get(id)?.webview.focus();
 }
 
 function close(id) {

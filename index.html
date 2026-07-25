@@ -30,6 +30,7 @@
     <span>Indicatif</span>
     <span>Niveau de transfert</span>
     <span>Point de transfert</span>
+    <span>STAR</span>
     <span>Next ATC</span>
   </div>
   <div class="rows" id="rows">
@@ -45,7 +46,31 @@
   <span id="atc"></span>
   <button id="clear" class="ghost">Vider l'historique</button>
   <button id="scan" class="ghost" title="Bascule mono-avion / balayage global">Balayage</button>
+  <button id="configBtn" class="ghost">Config</button>
 </footer>
+
+<div class="modal-overlay" id="configOverlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Pistes en service</h2>
+      <button id="configClose" class="ghost" aria-label="Fermer">✕</button>
+    </div>
+    <p class="modal-hint">
+      Sert a lever l'ambiguite quand une STAR pas encore franchie sur la route peut mener a
+      plusieurs COP differents selon la config piste. Aucun effet sur un aeroport non renseigne ici.
+    </p>
+    <form id="configForm" class="config-form">
+      <label>Aeroport
+        <input id="configAirport" type="text" maxlength="4" placeholder="LFML" autocomplete="off">
+      </label>
+      <label>Piste en service
+        <select id="configRunway"><option value="">—</option></select>
+      </label>
+      <button type="submit" id="configSave">Enregistrer</button>
+    </form>
+    <ul class="config-list" id="configList"></ul>
+  </div>
+</div>
 
 <script src="renderer.js"></script>
 </body>

@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld("loa", {
   onPinned: (cb) => ipcRenderer.on("pinned", (_e, data) => cb(data)),
   onScanMode: (cb) => ipcRenderer.on("scanMode", (_e, data) => cb(data)),
   onScanRows: (cb) => ipcRenderer.on("scanRows", (_e, data) => cb(data)),
+  getRunwayOptions: (icao) => ipcRenderer.invoke("loa:getRunwayOptions", icao),
+  getActiveRunways: () => ipcRenderer.invoke("loa:getActiveRunways"),
+  setActiveRunway: (icao, runway) => ipcRenderer.invoke("loa:setActiveRunway", { icao, runway }),
 });

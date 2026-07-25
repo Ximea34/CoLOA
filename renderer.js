@@ -132,6 +132,7 @@ function buildRow(r, fresh) {
       cell("callsign", r.callsign),
       cell("xfl", "Hors LoA", true),
       cell("point", "—"),
+      cell("star", "—", true),
       cell("next", "—")
     );
     node.append(line, notes([r.message], []));
@@ -145,6 +146,7 @@ function buildRow(r, fresh) {
     cell("callsign", r.callsign),
     cell("xfl", r.transferLevel, /coordination|requis|Non defini/i.test(r.transferLevel)),
     point,
+    cell("star", r.star || "—", !r.star),
     cell("next", r.nextStation)
   );
 
@@ -215,4 +217,94 @@ function clearEmpty() {
 
 function cssEscape(s) {
   return String(s).replace(/["\\]/g, "\\$&");
+}
+
+// --- config pistes en service -------------------------------------------------
+// Piste en service par aeroport : sert uniquement a lever l'ambiguite quand
+// une STAR pas encore franchie sur la route pourrait mener a plusieurs COP
+// selon la config piste (voir loa-engine.js). Etat maitre en main.js — cette
+// fenetre ne fait que lire/ecrire via IPC et reafficher.
+
+const configOverlay = el("configOverlay");
+const configAirport = el("configAirport");
+const configRunway = el("configRunway");
+const configList = el("configList");
+
+el("configBtn").addEventListener("click", async () => {
+  configOverlay.hidden = false;
+  configAirport.value = "";
+  configRunway.innerHTML = "";
+  configRunway.append(new Option("—", ""));
+  await refreshConfigList();
+  configAirport.focus();
+});
+
+el("configClose").addEventListener("click", () => { configOverlay.hidden = true; });
+configOverlay.addEventListener("click", (e) => {
+  if (e.target === configOverlay) configOverlay.hidden = true;
+});
+
+configAirport.addEventListener("change", loadRunwayOptionsForConfig);
+
+async function loadRunwayOptionsForConfig() {
+  const icao = configAirport.value.trim().toUpperCase();
+  configRunway.innerHTML = "";
+  if (!icao) {
+    configRunway.append(new Option("—", ""));
+    return;
+  }
+  const options = await window.loa.getRunwayOptions(icao);
+  if (!options.length) {
+    configRunway.append(new Option("aucune STAR connue pour cet aeroport", ""));
+    return;
+  }
+  options.forEach((r) => configRunway.append(new Option(r.replace(/:/g, "/"), r)));
+}
+
+el("configForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const icao = configAirport.value.trim().toUpperCase();
+  const runway = configRunway.value;
+  if (!icao || !runway) return;
+  await window.loa.setActiveRunway(icao, runway);
+  await refreshConfigList();
+});
+
+async function refreshConfigList() {
+  const active = await window.loa.getActiveRunways();
+  const entries = Object.entries(active);
+  configList.innerHTML = "";
+
+  if (!entries.length) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "Aucune piste configuree — inference STAR non desambiguisee.";
+    configList.append(li);
+    return;
+  }
+
+  entries.sort(([a], [b]) => a.localeCompare(b)).forEach(([icao, runway]) => {
+    const li = document.createElement("li");
+    li.className = "config-row";
+
+    const airportSpan = document.createElement("span");
+    airportSpan.className = "cfg-airport";
+    airportSpan.textContent = icao;
+
+    const runwaySpan = document.createElement("span");
+    runwaySpan.className = "cfg-runway";
+    runwaySpan.textContent = runway.replace(/:/g, "/");
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "cfg-remove";
+    removeBtn.textContent = "✕";
+    removeBtn.addEventListener("click", async () => {
+      await window.loa.setActiveRunway(icao, null);
+      await refreshConfigList();
+    });
+
+    li.append(airportSpan, runwaySpan, removeBtn);
+    configList.append(li);
+  });
 }
